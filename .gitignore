@@ -1,0 +1,9 @@
+.zig-cache/
+zig-out/
+*.o
+*.a
+__pycache__/
+.venv/
+venv/
+.pytest_cache/
+.DS_Store

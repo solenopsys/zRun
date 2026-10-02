@@ -1,0 +1,16 @@
+var ipv6Max = (1n << 128n) - 1n;
+if (ipv6Max !== BigInt("340282366920938463463374607431768211455")) throw "large BigInt arithmetic mismatch";
+if ((BigInt("0x1234") | 8n) !== 4668n) throw "BigInt bitwise OR mismatch";
+if ((-5n >> 1n) !== -3n) throw "negative BigInt shift mismatch";
+if (8n + 2n !== 10n || 12n - 2n !== 10n || 6n * 7n !== 42n) throw "BigInt arithmetic mismatch";
+if (10n / 3n !== 3n || 10n % 3n !== 1n) throw "BigInt division mismatch";
+if ((14n & 11n) !== 10n || (14n ^ 11n) !== 5n) throw "BigInt bitwise mismatch";
+if (!(1n < 2n && 2n <= 2n && 3n > 2n && 3n >= 3n)) throw "BigInt comparison mismatch";
+if (!(1n == 1) || 1n === 1) throw "BigInt loose/strict equality mismatch";
+if (BigInt(256) !== 256n || BigInt(true) !== 1n) throw "BigInt conversion mismatch";
+if (typeof 1n !== "bigint") throw "BigInt typeof mismatch";
+if (0n) throw "zero BigInt should be falsey";
+if ((1 << 3) !== 8 || (8 >> 2) !== 2) throw "numeric shift mismatch";
+print("PASS bigint literals and arithmetic");
+print("PASS bigint display", BigInt("0x10"));
+print("FIXTURE_DONE bigint");

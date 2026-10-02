@@ -1,0 +1,10 @@
+var shifted = 8 >>> 1, obj = {x: 7};
+if (shifted !== 4) throw "unsigned shift mismatch";
+print("PASS operator.binary.>>>");
+if (!("x" in obj)) throw "in mismatch";
+print("PASS operator.binary.in");
+if (!(new Error() instanceof Error)) throw "instanceof mismatch";
+print("PASS operator.binary.instanceof");
+if (typeof shifted !== "number") throw "typeof mismatch";
+print("PASS operator.typeof");
+print("FIXTURE_DONE operators");

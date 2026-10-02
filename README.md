@@ -1,6 +1,8 @@
 # zRun
 
-zRun is a compact JavaScript bytecode runtime and source compiler written in Zig for a defined set of embedded scripting workloads. It includes a command-line runner for source scripts and supported upstream bytecode images.
+zRun is a compact JavaScript bytecode runtime and source compiler written in Zig. It separates scriptable business logic from performance-critical host functions: business rules can run as JavaScript bytecode, while hot paths and host integrations can run as native Zig functions. Runtime capabilities are organized as plugins, so new APIs can be added without rewriting the VM core. It includes a command-line runner for source scripts and supported upstream bytecode images.
+
+The complete engine—source compiler, bytecode runtime, VM, and built-in plugins—has a memory footprint of about 5 MB, not just the VM core. Actual process memory depends on the workload, allocator, and build configuration.
 
 ## Status
 

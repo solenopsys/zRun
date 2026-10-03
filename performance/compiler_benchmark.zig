@@ -26,7 +26,7 @@ pub fn main(init: std.process.Init) !void {
     std.debug.print("A ratio below 1.00x means zRun compiled faster. Inputs are identical; compiler outputs/optimization pipelines differ.\n\n", .{});
     std.debug.print("| Workload | MQuickJS us | zRun us | MQuickJS/zRun |\n|---|---:|---:|---:|\n", .{});
     for (cases) |test_case| {
-        const source_z = try allocator.dupeZ(u8, test_case.source);
+        const source_z = try allocator.dupeSentinel(u8, test_case.source, 0);
         defer allocator.free(source_z);
         for (0..warmup_count) |_| {
             _ = try compileMquick(allocator, source_z, test_case.source.len, init.io);

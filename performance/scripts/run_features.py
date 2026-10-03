@@ -45,7 +45,7 @@ def main():
     reference = Path(args.reference).resolve()
     if not reference.is_file():
         parser.error(f"reference engine not found: {reference}")
-    checked(["zig", "build", "-Doptimize=ReleaseFast"])
+    checked(["zig", "build", "-Doptimize=fast"])
     zig = ROOT / "zig-out" / "bin" / "zrun"
 
     for source in CASES:

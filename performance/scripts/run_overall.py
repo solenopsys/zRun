@@ -108,7 +108,7 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="zrun-overall-performance-") as temporary:
         v8_runner = Path(temporary) / "v8-runner"
-        run(["zig", "build", "-Doptimize=ReleaseFast"], cwd=ROOT)
+        run(["zig", "build", "-Doptimize=fast"], cwd=ROOT)
         zrun = ROOT / "zig-out" / "bin" / "zrun"
         run(["zig", "build", "-Dv8-backend=real"], cwd=v8_root)
         run([

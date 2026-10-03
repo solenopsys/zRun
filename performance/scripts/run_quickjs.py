@@ -54,7 +54,7 @@ def main():
     if args.runs < 1 or args.warmups < 0:
         parser.error("--runs must be positive and --warmups cannot be negative")
 
-    run(["zig", "build", "-Doptimize=ReleaseFast"], cwd=ROOT)
+    run(["zig", "build", "-Doptimize=fast"], cwd=ROOT)
     zrun = (ROOT / "zig-out" / "bin" / "zrun").resolve() if args.zrun == ROOT / "zig-out" / "bin" / "zrun" else zrun
     if not zrun.is_file():
         parser.error(f"zRun binary not found: {zrun}")

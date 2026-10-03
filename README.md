@@ -133,12 +133,12 @@ Coverage: [bytecode fixtures](verification/04_bytecode/) and [checked-in images]
 
 ## Requirements
 
-- Zig 0.16.0
+- Zig 0.17.0
 
 ## Build and run
 
 ```sh
-zig build -Doptimize=ReleaseFast
+zig build -Doptimize=fast
 ./zig-out/bin/zrun-compile path/to/bundle.js > path/to/program.zbc
 ./zig-out/bin/zrun-runtime path/to/program.zbc
 ./zig-out/bin/zrun --bytecode path/to/program.bin
@@ -191,7 +191,7 @@ This runs Zig unit tests followed by the language fixtures in increasing levels 
 
 ## Performance
 
-Latest measurements from 2026-09-29 on Linux x86_64, AMD Ryzen 7 8845H, Zig 0.16.0. Ratios are reference time / zRun time; below `1.00x` means zRun was slower. Suites have different workloads and timing scopes, so compare results only within each row.
+Measurements captured on 2026-09-29 on Linux x86_64, AMD Ryzen 7 8845H, Zig 0.16.0. Ratios are reference time / zRun time; below `1.00x` means zRun was slower. Suites have different workloads and timing scopes, so compare results only within each row.
 
 Run the full benchmark set from the repository root. Set these paths to the installed MQuickJS executable, QuickJS executable, and MQuickJS source checkout. The command runs all suites represented below; it does not use V8.
 
@@ -222,16 +222,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
-zig build bench -Doptimize=ReleaseFast
+zig build bench -Doptimize=fast
 for source in performance/workloads/inprocess/*.js; do
   image="$tmpdir/$(basename "${source%.js}").bin"
   "$MQJS" -o "$image" "$source"
-  zig build compare -Doptimize=ReleaseFast -- "$image"
+  zig build compare -Doptimize=fast -- "$image"
 done
 python3 performance/scripts/run.py "$MQJS"
 python3 performance/scripts/run_features.py "$MQJS"
 python3 performance/scripts/run_quickjs.py --quickjs "$QJS"
-zig build compile-bench -Doptimize=ReleaseFast
+zig build compile-bench -Doptimize=fast
 ```
 
 | Benchmark | Cases | Result | Scope |
@@ -243,7 +243,7 @@ zig build compile-bench -Doptimize=ReleaseFast
 | Official QuickJS CLI | 4 | geometric mean `0.91x` | Source compile and execution; 3 warmups, 11 timed runs |
 | Compile-only comparison | 4 | geometric mean `0.60x` | MQuickJS C `-O3` vs zRun Zig `ReleaseFast`; 15 timed runs |
 
-The internal VM microbenchmarks run with `zig build bench -Doptimize=ReleaseFast`. Additional workloads and Python runners are in [`performance/`](performance/); [detailed results and methodology](performance/knolage/README.md) include historical measurements. Cross-engine comparisons require separately installed MQuickJS or QuickJS executables; the zRun build and verification suite do not depend on them.
+The internal VM microbenchmarks run with `zig build bench -Doptimize=fast`. Additional workloads and Python runners are in [`performance/`](performance/); [detailed results and methodology](performance/knolage/README.md) include historical measurements. Cross-engine comparisons require separately installed MQuickJS or QuickJS executables; the zRun build and verification suite do not depend on them.
 
 ## License
 

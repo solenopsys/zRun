@@ -133,7 +133,7 @@ Coverage: [bytecode fixtures](verification/04_bytecode/) and [checked-in images]
 
 ## Requirements
 
-- Zig 0.17.0
+- Zig 0.17.0 !
 
 ## Build and run
 

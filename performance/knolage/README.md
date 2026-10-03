@@ -8,7 +8,7 @@ or capacity decisions.
 The in-process VM microbenchmarks run without external engines:
 
 ```sh
-zig build bench -Doptimize=ReleaseFast
+zig build bench -Doptimize=fast
 ```
 
 Run commands from the zRun repository root. Workloads are grouped by behavior:

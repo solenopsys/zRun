@@ -143,7 +143,7 @@ field in a struct literal still emits a full `memset` when the value is used.
 
 ### Result
 
-`zig build compile-bench -Doptimize=ReleaseFast` moved from 0.08-0.12x to
+`zig build compile-bench -Doptimize=fast` moved from 0.08-0.12x to
 0.51-0.66x (about 6-8x faster). `zig build test` passes 66 tests and the full
 verification matrix from the original test layout passed and is
 green. Source-level CLI results also improved, though those timings are noisy:
@@ -289,7 +289,7 @@ way, so the reference scan is not treated as a compile-time cause.
   because instrumentation perturbs the hot path.
 - Timing builds use MQuickJS `-O3` and Zig `ReleaseFast`. Zig Debug
   `compare-stats` may fail to link against the host toolchain's `.sframe`
-  sections; use `-Doptimize=ReleaseFast` for that diagnostic build.
+  sections; use `-Doptimize=fast` for that diagnostic build.
 - `perf` was unavailable during the earlier experiments but is now installed
   and usable with unprivileged `cycles:u`. See [the profiling handoff](PROFILING.md)
   for commands, CPU-target A/B measurements, and sampled hotspots.

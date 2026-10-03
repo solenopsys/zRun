@@ -12,8 +12,8 @@ binary and run the comparator:
 
 ```sh
 /path/to/mqjs -o /tmp/case.bin performance/workloads/inprocess/empty_loop.js
-taskset -c 0 zig build compare -Doptimize=ReleaseFast -- /tmp/case.bin
-taskset -c 0 zig build compare-stats -Doptimize=ReleaseFast -- /tmp/case.bin
+taskset -c 0 zig build compare -Doptimize=fast -- /tmp/case.bin
+taskset -c 0 zig build compare-stats -Doptimize=fast -- /tmp/case.bin
 ```
 
 Substitute any fixture below for `performance/workloads/inprocess/empty_loop.js`.

@@ -14,7 +14,7 @@ extras archive SHA-256 is
 The CLI workloads under [`../workloads/cli/`](../workloads/cli/) run identical
 JavaScript source on QuickJS and zRun. They include process start, parsing,
 compilation, and execution. The zRun binary is built with
-`zig build -Doptimize=ReleaseFast`. These measurements were rerun on
+`zig build -Doptimize=fast`. These measurements were rerun on
 2026-09-28, pinned to CPU 0, with 15 timed runs and 3 warmups. The original
 record did not preserve full host/compiler metadata, so treat the table as a
 historical result rather than a portable performance claim.

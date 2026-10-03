@@ -38,7 +38,6 @@ pub fn build(b: *std.Build) void {
     b.getInstallStep().dependOn(&runtime_exe_install.step);
 
     const run_command = b.addRunArtifact(runtime);
-    if (b.args) |args| run_command.addArgs(args);
     b.step("run", "Compile and execute a source file on the Zig VM").dependOn(&run_command.step);
 
     const memory_probe = b.addExecutable(.{
@@ -67,7 +66,7 @@ pub fn build(b: *std.Build) void {
     const compare_module = b.createModule(.{
         .root_source_file = b.path("src/performance_compare.zig"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = .fast,
         .link_libc = true,
     });
     compare_module.addIncludePath(b.path("../mquickjs"));
@@ -87,7 +86,6 @@ pub fn build(b: *std.Build) void {
     });
     compare.step.dependOn(&make_reference_headers.step);
     const run_compare = b.addRunArtifact(compare);
-    if (b.args) |args| run_compare.addArgs(args);
     b.step("compare", "Compare both VMs in process on one upstream bytecode image").dependOn(&run_compare.step);
 
     const compare_stats_module = b.createModule(.{
@@ -113,19 +111,18 @@ pub fn build(b: *std.Build) void {
     });
     compare_stats.step.dependOn(&make_reference_headers.step);
     const run_compare_stats = b.addRunArtifact(compare_stats);
-    if (b.args) |args| run_compare_stats.addArgs(args);
     b.step("compare-stats", "Collect opcode histograms from both VMs in diagnostic builds").dependOn(&run_compare_stats.step);
 
     const compile_bench_module = b.createModule(.{
         .root_source_file = b.path("performance/compiler_benchmark.zig"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = .fast,
         .link_libc = true,
     });
     compile_bench_module.addImport("compiler", b.createModule(.{
         .root_source_file = b.path("src/compiler.zig"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = .fast,
     }));
     compile_bench_module.addIncludePath(b.path("../mquickjs"));
     compile_bench_module.addCSourceFile(.{

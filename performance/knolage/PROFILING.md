@@ -14,7 +14,7 @@ older notes that say it is unavailable describe an earlier environment.
 The in-process comparator runs the same MQuickJS bytecode image in MQuickJS C
 and zRun, with loading outside its timer. It builds the C sources through
 Zig's Clang with `-O3` and the Zig module with `-OReleaseFast` (hardcoded in
-[`build.zig`](../../build.zig)). `-Doptimize=ReleaseFast` does not change this
+[`build.zig`](../../build.zig)). `-Doptimize=fast` does not change this
 comparator. The default CPU target, `-Dcpu=native`, and `-Dcpu=znver4` resolve
 to the same cached binary on this Ryzen 7 8845H host.
 

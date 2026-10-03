@@ -25,7 +25,7 @@ pub const ObjectObject = struct {
 
 fn PointerCache(comptime T: type) type {
     return struct {
-        entries: [8]?*T = [_]?*T{null} ** 8,
+        entries: [8]?*T = @splat(null),
         next: usize = 0,
 
         fn get(self: *@This(), pointer: *anyopaque) ?*T {

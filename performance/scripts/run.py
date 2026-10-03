@@ -50,12 +50,12 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="zrun-performance-") as temporary:
         temp = Path(temporary)
-        run(["zig", "build", "-Doptimize=ReleaseSmall"], cwd=ROOT)
+        run(["zig", "build", "-Doptimize=small"], cwd=ROOT)
         small_binary = temp / "zrun-release-small"
         shutil.copy2(ROOT / "zig-out" / "bin" / "zrun", small_binary)
         small_raw_size = small_binary.stat().st_size
 
-        run(["zig", "build", "-Doptimize=ReleaseFast"], cwd=ROOT)
+        run(["zig", "build", "-Doptimize=fast"], cwd=ROOT)
         zig_vm = ROOT / "zig-out" / "bin" / "zrun"
         fast_binary = temp / "zrun-release-fast"
         shutil.copy2(zig_vm, fast_binary)

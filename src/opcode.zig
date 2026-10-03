@@ -147,18 +147,18 @@ pub const Opcode = enum(u8) {
     to_bigint,
 };
 
-pub const count = @typeInfo(Opcode).@"enum".fields.len;
+pub const count = @typeInfo(Opcode).@"enum".field_names.len;
 
 test "opcode numbers preserve upstream order and compact opcode groups" {
-    try std.testing.expectEqual(@as(u8, 0), @intFromEnum(Opcode.invalid));
-    try std.testing.expectEqual(@as(u8, 1), @intFromEnum(Opcode.push_value));
-    try std.testing.expectEqual(@as(u8, 93), @intFromEnum(Opcode.nop));
-    try std.testing.expectEqual(@as(u8, 94), @intFromEnum(Opcode.push_minus1));
-    try std.testing.expectEqual(@as(u8, 95), @intFromEnum(Opcode.push_0));
-    try std.testing.expectEqual(@as(u8, 102), @intFromEnum(Opcode.push_7));
-    try std.testing.expectEqual(@as(u8, 137), @intFromEnum(Opcode.add_loc));
-    try std.testing.expectEqual(@as(u8, 138), @intFromEnum(Opcode.sub_loc));
-    try std.testing.expectEqual(@as(u8, 139), @intFromEnum(Opcode.await));
-    try std.testing.expectEqual(@as(u8, 140), @intFromEnum(Opcode.to_bigint));
+    try std.testing.expectEqual(@as(u8, 0), @backingInt(Opcode.invalid));
+    try std.testing.expectEqual(@as(u8, 1), @backingInt(Opcode.push_value));
+    try std.testing.expectEqual(@as(u8, 93), @backingInt(Opcode.nop));
+    try std.testing.expectEqual(@as(u8, 94), @backingInt(Opcode.push_minus1));
+    try std.testing.expectEqual(@as(u8, 95), @backingInt(Opcode.push_0));
+    try std.testing.expectEqual(@as(u8, 102), @backingInt(Opcode.push_7));
+    try std.testing.expectEqual(@as(u8, 137), @backingInt(Opcode.add_loc));
+    try std.testing.expectEqual(@as(u8, 138), @backingInt(Opcode.sub_loc));
+    try std.testing.expectEqual(@as(u8, 139), @backingInt(Opcode.await));
+    try std.testing.expectEqual(@as(u8, 140), @backingInt(Opcode.to_bigint));
     try std.testing.expectEqual(@as(usize, 141), count);
 }

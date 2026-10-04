@@ -478,16 +478,16 @@ pub const VM = struct {
             if (comptime pump_each_instruction) {
                 self.event_pump.?(self.event_context orelse return error.NativeFunctionFailed, &self, objects) catch return error.NativeFunctionFailed;
             }
-            if (builtin.mode != .fast and pc >= function.code.len) return error.MissingReturn;
+            if (builtin.mode != .ReleaseFast and pc >= function.code.len) return error.MissingReturn;
             const opcode_byte = function.code[pc];
             pc += 1;
             if (collect_stats) stats.?.opcode_counts[opcode_byte] += 1;
-            if (builtin.mode != .fast and opcode_byte >= @as(u8, @intCast(opcode_count))) return error.InvalidOpcode;
-            const opcode: Opcode = @fromBackingInt(@intCast(opcode_byte));
+            if (builtin.mode != .ReleaseFast and opcode_byte >= @as(u8, @intCast(opcode_count))) return error.InvalidOpcode;
+            const opcode: Opcode = @enumFromInt(opcode_byte);
             last_opcode = opcode;
 
-            if (opcode_byte >= @backingInt(Opcode.push_minus1) and opcode_byte <= @backingInt(Opcode.push_7)) {
-                const number: i32 = @as(i32, opcode_byte) - @as(i32, @backingInt(Opcode.push_0));
+            if (opcode_byte >= @intFromEnum(Opcode.push_minus1) and opcode_byte <= @intFromEnum(Opcode.push_7)) {
+                const number: i32 = @as(i32, opcode_byte) - @as(i32, @intFromEnum(Opcode.push_0));
                 try self.push(&stack, function.max_stack, Value.fromInt(number) orelse return error.IntegerOverflow);
                 continue :dispatch;
             }
@@ -781,7 +781,7 @@ pub const VM = struct {
                 .push_global_this => try self.push(&stack, function.max_stack, self.global_this),
                 .get_loc, .put_loc => {
                     const index = try readU16(function.code, &pc);
-                    if (builtin.mode != .fast and index >= locals.len) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and index >= locals.len) return error.BadLocalIndex;
                     if (opcode == .get_loc) {
                         try self.push(&stack, function.max_stack, locals[index].load());
                     } else {
@@ -790,7 +790,7 @@ pub const VM = struct {
                 },
                 .get_loc8, .put_loc8 => {
                     const index = try readByte(function.code, &pc);
-                    if (builtin.mode != .fast and index >= locals.len) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and index >= locals.len) return error.BadLocalIndex;
                     if (opcode == .get_loc8) {
                         try self.push(&stack, function.max_stack, locals[index].load());
                     } else {
@@ -799,7 +799,7 @@ pub const VM = struct {
                 },
                 .get_arg, .put_arg => {
                     const index = try readU16(function.code, &pc);
-                    if (builtin.mode != .fast and index >= arguments.len) return error.BadArgumentIndex;
+                    if (builtin.mode != .ReleaseFast and index >= arguments.len) return error.BadArgumentIndex;
                     if (opcode == .get_arg) {
                         try self.push(&stack, function.max_stack, arguments[index].load());
                     } else {
@@ -815,14 +815,14 @@ pub const VM = struct {
                 },
                 .get_var_ref, .get_var_ref_nocheck => {
                     const index = try readU16(function.code, &pc);
-                    if (builtin.mode != .fast and index >= captured_cells.len) return error.BadGlobalIndex;
+                    if (builtin.mode != .ReleaseFast and index >= captured_cells.len) return error.BadGlobalIndex;
                     const value = captured_cells[index].value;
                     if (value.isUninitialized() and opcode == .get_var_ref) return error.UnknownGlobal;
                     try self.push(&stack, function.max_stack, value);
                 },
                 .put_var_ref, .put_var_ref_nocheck => {
                     const index = try readU16(function.code, &pc);
-                    if (builtin.mode != .fast and index >= captured_cells.len) return error.BadGlobalIndex;
+                    if (builtin.mode != .ReleaseFast and index >= captured_cells.len) return error.BadGlobalIndex;
                     const cell = captured_cells[index];
                     if (cell.value.isUninitialized() and opcode == .put_var_ref) return error.UnknownGlobal;
                     cell.value = try self.pop(&stack);
@@ -951,7 +951,7 @@ pub const VM = struct {
                 },
                 .add_loc, .sub_loc => {
                     const index = try readU16(function.code, &pc);
-                    if (builtin.mode != .fast and index >= locals.len) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and index >= locals.len) return error.BadLocalIndex;
                     const right = try self.pop(&stack);
                     const left = locals[index].load();
                     const result = if (opcode == .add_loc) add_result: {
@@ -1007,7 +1007,7 @@ pub const VM = struct {
                     const argument_count_for_call: usize = call_flags & 0xffff;
                     const method_call = opcode == .call_method;
                     const prefix: usize = if (method_call) 2 else 1;
-                    if (builtin.mode != .fast and stack.len < argument_count_for_call + prefix) return error.StackUnderflow;
+                    if (builtin.mode != .ReleaseFast and stack.len < argument_count_for_call + prefix) return error.StackUnderflow;
                     const callee_position = stack.len - argument_count_for_call - prefix;
                     const callee_index = callee_position + @intFromBool(method_call);
                     const this_value = if (method_call) stack.storage[callee_position] else Value.undefined_value;
@@ -1257,67 +1257,67 @@ pub const VM = struct {
                     try self.push(&stack, function.max_stack, result);
                 },
                 .get_loc0 => {
-                    if (builtin.mode != .fast and locals.len <= 0) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and locals.len <= 0) return error.BadLocalIndex;
                     try self.push(&stack, function.max_stack, locals[0].load());
                 },
                 .get_loc1 => {
-                    if (builtin.mode != .fast and locals.len <= 1) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and locals.len <= 1) return error.BadLocalIndex;
                     try self.push(&stack, function.max_stack, locals[1].load());
                 },
                 .get_loc2 => {
-                    if (builtin.mode != .fast and locals.len <= 2) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and locals.len <= 2) return error.BadLocalIndex;
                     try self.push(&stack, function.max_stack, locals[2].load());
                 },
                 .get_loc3 => {
-                    if (builtin.mode != .fast and locals.len <= 3) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and locals.len <= 3) return error.BadLocalIndex;
                     try self.push(&stack, function.max_stack, locals[3].load());
                 },
                 .put_loc0 => {
-                    if (builtin.mode != .fast and locals.len <= 0) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and locals.len <= 0) return error.BadLocalIndex;
                     locals[0].store(try self.pop(&stack));
                 },
                 .put_loc1 => {
-                    if (builtin.mode != .fast and locals.len <= 1) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and locals.len <= 1) return error.BadLocalIndex;
                     locals[1].store(try self.pop(&stack));
                 },
                 .put_loc2 => {
-                    if (builtin.mode != .fast and locals.len <= 2) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and locals.len <= 2) return error.BadLocalIndex;
                     locals[2].store(try self.pop(&stack));
                 },
                 .put_loc3 => {
-                    if (builtin.mode != .fast and locals.len <= 3) return error.BadLocalIndex;
+                    if (builtin.mode != .ReleaseFast and locals.len <= 3) return error.BadLocalIndex;
                     locals[3].store(try self.pop(&stack));
                 },
                 .get_arg0 => {
-                    if (builtin.mode != .fast and arguments.len <= 0) return error.BadArgumentIndex;
+                    if (builtin.mode != .ReleaseFast and arguments.len <= 0) return error.BadArgumentIndex;
                     try self.push(&stack, function.max_stack, arguments[0].load());
                 },
                 .get_arg1 => {
-                    if (builtin.mode != .fast and arguments.len <= 1) return error.BadArgumentIndex;
+                    if (builtin.mode != .ReleaseFast and arguments.len <= 1) return error.BadArgumentIndex;
                     try self.push(&stack, function.max_stack, arguments[1].load());
                 },
                 .get_arg2 => {
-                    if (builtin.mode != .fast and arguments.len <= 2) return error.BadArgumentIndex;
+                    if (builtin.mode != .ReleaseFast and arguments.len <= 2) return error.BadArgumentIndex;
                     try self.push(&stack, function.max_stack, arguments[2].load());
                 },
                 .get_arg3 => {
-                    if (builtin.mode != .fast and arguments.len <= 3) return error.BadArgumentIndex;
+                    if (builtin.mode != .ReleaseFast and arguments.len <= 3) return error.BadArgumentIndex;
                     try self.push(&stack, function.max_stack, arguments[3].load());
                 },
                 .put_arg0 => {
-                    if (builtin.mode != .fast and arguments.len <= 0) return error.BadArgumentIndex;
+                    if (builtin.mode != .ReleaseFast and arguments.len <= 0) return error.BadArgumentIndex;
                     arguments[0].store(try self.pop(&stack));
                 },
                 .put_arg1 => {
-                    if (builtin.mode != .fast and arguments.len <= 1) return error.BadArgumentIndex;
+                    if (builtin.mode != .ReleaseFast and arguments.len <= 1) return error.BadArgumentIndex;
                     arguments[1].store(try self.pop(&stack));
                 },
                 .put_arg2 => {
-                    if (builtin.mode != .fast and arguments.len <= 2) return error.BadArgumentIndex;
+                    if (builtin.mode != .ReleaseFast and arguments.len <= 2) return error.BadArgumentIndex;
                     arguments[2].store(try self.pop(&stack));
                 },
                 .put_arg3 => {
-                    if (builtin.mode != .fast and arguments.len <= 3) return error.BadArgumentIndex;
+                    if (builtin.mode != .ReleaseFast and arguments.len <= 3) return error.BadArgumentIndex;
                     arguments[3].store(try self.pop(&stack));
                 },
                 .return_value, .return_undef => {
@@ -1394,7 +1394,7 @@ pub const VM = struct {
 
     inline fn push(self: VM, stack: *ExecutionStack, max_stack: usize, value: Value) Error!void {
         _ = self;
-        if (builtin.mode == .fast) {
+        if (builtin.mode == .ReleaseFast) {
             stack.storage[stack.len] = value;
             stack.len += 1;
             return;
@@ -1572,7 +1572,7 @@ pub const VM = struct {
 
     inline fn pop(self: VM, stack: *ExecutionStack) Error!Value {
         _ = self;
-        if (builtin.mode == .fast) {
+        if (builtin.mode == .ReleaseFast) {
             stack.len -= 1;
             return stack.storage[stack.len];
         }
@@ -1581,7 +1581,7 @@ pub const VM = struct {
 
     inline fn peek(self: VM, stack: *const ExecutionStack, depth: usize) Error!Value {
         _ = self;
-        if (builtin.mode == .fast) return stack.storage[stack.len - depth - 1];
+        if (builtin.mode == .ReleaseFast) return stack.storage[stack.len - depth - 1];
         return stack.peek(depth);
     }
 
@@ -2050,7 +2050,7 @@ test "truthiness handles immediate values and strings" {
 }
 
 fn branchTarget(code_len: usize, operand_pc: usize, relative: i32) VM.Error!usize {
-    if (builtin.mode == .fast) {
+    if (builtin.mode == .ReleaseFast) {
         return if (relative < 0)
             operand_pc - @as(usize, @intCast(-@as(i64, relative)))
         else
@@ -2063,21 +2063,21 @@ fn branchTarget(code_len: usize, operand_pc: usize, relative: i32) VM.Error!usiz
 }
 
 fn readByte(code: []const u8, pc: *usize) VM.Error!u8 {
-    if (builtin.mode != .fast and pc.* >= code.len) return error.TruncatedBytecode;
+    if (builtin.mode != .ReleaseFast and pc.* >= code.len) return error.TruncatedBytecode;
     const byte = code[pc.*];
     pc.* += 1;
     return byte;
 }
 
 fn readU16(code: []const u8, pc: *usize) VM.Error!u16 {
-    if (builtin.mode != .fast and code.len -| pc.* < 2) return error.TruncatedBytecode;
+    if (builtin.mode != .ReleaseFast and code.len -| pc.* < 2) return error.TruncatedBytecode;
     const value = std.mem.readInt(u16, code[pc.*..][0..2], .little);
     pc.* += 2;
     return value;
 }
 
 fn readU32(code: []const u8, pc: *usize) VM.Error!u32 {
-    if (builtin.mode != .fast and code.len -| pc.* < 4) return error.TruncatedBytecode;
+    if (builtin.mode != .ReleaseFast and code.len -| pc.* < 4) return error.TruncatedBytecode;
     const value = std.mem.readInt(u32, code[pc.*..][0..4], .little);
     pc.* += 4;
     return value;
@@ -2085,10 +2085,10 @@ fn readU32(code: []const u8, pc: *usize) VM.Error!u32 {
 
 test "zRun bytecode push, arithmetic, and return execute in Zig" {
     const code = [_]u8{
-        @backingInt(Opcode.push_2),
-        @backingInt(Opcode.push_3),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_2),
+        @intFromEnum(Opcode.push_3),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code });
     try std.testing.expectEqual(@as(i32, 5), result.asInt().?);
@@ -2096,9 +2096,9 @@ test "zRun bytecode push, arithmetic, and return execute in Zig" {
 
 test "zRun suspends an execution at await and resumes it with the host result" {
     const code = [_]u8{
-        @backingInt(Opcode.push_i8), 7,
-        @backingInt(Opcode.await),   @backingInt(Opcode.push_1),
-        @backingInt(Opcode.add),     @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_i8), 7,
+        @intFromEnum(Opcode.await),   @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.add),     @intFromEnum(Opcode.return_value),
     };
     var objects = ObjectStore.init(std.testing.allocator);
     defer objects.deinit();
@@ -2119,9 +2119,9 @@ test "zRun suspends an execution at await and resumes it with the host result" {
 
 test "synchronous execution rejects await without leaking its continuation" {
     const code = [_]u8{
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.await),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.await),
+        @intFromEnum(Opcode.return_value),
     };
     var objects = ObjectStore.init(std.testing.allocator);
     defer objects.deinit();
@@ -2131,10 +2131,10 @@ test "synchronous execution rejects await without leaking its continuation" {
 
 test "zRun VM pumps host events on its execution thread" {
     const code = [_]u8{
-        @backingInt(Opcode.push_2),
-        @backingInt(Opcode.push_3),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_2),
+        @intFromEnum(Opcode.push_3),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.return_value),
     };
     var pump_count: usize = 0;
     const result = try (VM{
@@ -2152,23 +2152,23 @@ fn countPumpedEvents(context: *anyopaque, _: *const VM, _: *ObjectStore) anyerro
 }
 
 test "zRun signed immediate operands decode little endian" {
-    const code = [_]u8{ @backingInt(Opcode.push_i16), 0xfe, 0xff, @backingInt(Opcode.return_value) };
+    const code = [_]u8{ @intFromEnum(Opcode.push_i16), 0xfe, 0xff, @intFromEnum(Opcode.return_value) };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code });
     try std.testing.expectEqual(@as(i32, -2), result.asInt().?);
 }
 
 test "zRun conditional branch uses operand-relative byte offsets" {
     const code = [_]u8{
-        @backingInt(Opcode.push_false),
-        @backingInt(Opcode.if_false),
+        @intFromEnum(Opcode.push_false),
+        @intFromEnum(Opcode.if_false),
         6,
         0,
         0,
         0,
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.return_value),
-        @backingInt(Opcode.push_2),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.return_value),
+        @intFromEnum(Opcode.push_2),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code });
     try std.testing.expectEqual(@as(i32, 2), result.asInt().?);
@@ -2176,17 +2176,17 @@ test "zRun conditional branch uses operand-relative byte offsets" {
 
 test "zRun compact local opcodes store and load frame locals" {
     const code = [_]u8{
-        @backingInt(Opcode.push_5),
-        @backingInt(Opcode.put_loc2),
-        @backingInt(Opcode.get_loc2),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_5),
+        @intFromEnum(Opcode.put_loc2),
+        @intFromEnum(Opcode.get_loc2),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code, .local_count = 3 });
     try std.testing.expectEqual(@as(i32, 5), result.asInt().?);
 }
 
 test "zRun argument opcodes read frame arguments" {
-    const code = [_]u8{ @backingInt(Opcode.get_arg0), @backingInt(Opcode.return_value) };
+    const code = [_]u8{ @intFromEnum(Opcode.get_arg0), @intFromEnum(Opcode.return_value) };
     const args = [_]Value{Value.fromInt(17).?};
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code, .arguments = &args });
     try std.testing.expectEqual(@as(i32, 17), result.asInt().?);
@@ -2194,12 +2194,12 @@ test "zRun argument opcodes read frame arguments" {
 
 test "zRun byte-sized local opcodes decode indices" {
     const code = [_]u8{
-        @backingInt(Opcode.push_6),
-        @backingInt(Opcode.put_loc8),
+        @intFromEnum(Opcode.push_6),
+        @intFromEnum(Opcode.put_loc8),
         4,
-        @backingInt(Opcode.get_loc8),
+        @intFromEnum(Opcode.get_loc8),
         4,
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code, .local_count = 5 });
     try std.testing.expectEqual(@as(i32, 6), result.asInt().?);
@@ -2207,12 +2207,12 @@ test "zRun byte-sized local opcodes decode indices" {
 
 test "zRun dup2 preserves both stack values" {
     const code = [_]u8{
-        @backingInt(Opcode.push_2),
-        @backingInt(Opcode.push_3),
-        @backingInt(Opcode.dup2),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_2),
+        @intFromEnum(Opcode.push_3),
+        @intFromEnum(Opcode.dup2),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code });
     try std.testing.expectEqual(@as(i32, 8), result.asInt().?);
@@ -2220,15 +2220,15 @@ test "zRun dup2 preserves both stack values" {
 
 test "zRun insert and permutation opcodes preserve source stack order" {
     const code = [_]u8{
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.push_2),
-        @backingInt(Opcode.push_3),
-        @backingInt(Opcode.perm3),
-        @backingInt(Opcode.drop),
-        @backingInt(Opcode.insert2),
-        @backingInt(Opcode.drop),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.push_2),
+        @intFromEnum(Opcode.push_3),
+        @intFromEnum(Opcode.perm3),
+        @intFromEnum(Opcode.drop),
+        @intFromEnum(Opcode.insert2),
+        @intFromEnum(Opcode.drop),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code });
     try std.testing.expectEqual(@as(i32, 3), result.asInt().?);
@@ -2236,34 +2236,34 @@ test "zRun insert and permutation opcodes preserve source stack order" {
 
 test "zRun insert3 and perm4 preserve exact stack order" {
     const insert_code = [_]u8{
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.push_2),
-        @backingInt(Opcode.push_3),
-        @backingInt(Opcode.insert3),
-        @backingInt(Opcode.drop),
-        @backingInt(Opcode.drop),
-        @backingInt(Opcode.drop),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.push_2),
+        @intFromEnum(Opcode.push_3),
+        @intFromEnum(Opcode.insert3),
+        @intFromEnum(Opcode.drop),
+        @intFromEnum(Opcode.drop),
+        @intFromEnum(Opcode.drop),
+        @intFromEnum(Opcode.return_value),
     };
     const insert_result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &insert_code });
     try std.testing.expectEqual(@as(i32, 3), insert_result.asInt().?);
 
     const permute_code = [_]u8{
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.push_2),
-        @backingInt(Opcode.push_3),
-        @backingInt(Opcode.push_4),
-        @backingInt(Opcode.perm4),
-        @backingInt(Opcode.drop),
-        @backingInt(Opcode.drop),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.push_2),
+        @intFromEnum(Opcode.push_3),
+        @intFromEnum(Opcode.push_4),
+        @intFromEnum(Opcode.perm4),
+        @intFromEnum(Opcode.drop),
+        @intFromEnum(Opcode.drop),
+        @intFromEnum(Opcode.return_value),
     };
     const permute_result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &permute_code });
     try std.testing.expectEqual(@as(i32, 1), permute_result.asInt().?);
 }
 
 test "zRun push_const8 loads a constant using its compact index" {
-    const code = [_]u8{ @backingInt(Opcode.push_const8), 1, @backingInt(Opcode.return_value) };
+    const code = [_]u8{ @intFromEnum(Opcode.push_const8), 1, @intFromEnum(Opcode.return_value) };
     const constants = [_]Value{ Value.fromInt(11).?, Value.fromInt(29).? };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code, .constants = &constants });
     try std.testing.expectEqual(@as(i32, 29), result.asInt().?);
@@ -2271,12 +2271,12 @@ test "zRun push_const8 loads a constant using its compact index" {
 
 test "zRun dup1 duplicates the lower value while preserving top order" {
     const code = [_]u8{
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.push_2),
-        @backingInt(Opcode.dup1),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.push_2),
+        @intFromEnum(Opcode.dup1),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code });
     try std.testing.expectEqual(@as(i32, 4), result.asInt().?);
@@ -2284,19 +2284,19 @@ test "zRun dup1 duplicates the lower value while preserving top order" {
 
 test "zRun post increment and decrement leave old and new values on stack" {
     const increment_code = [_]u8{
-        @backingInt(Opcode.push_3),
-        @backingInt(Opcode.post_inc),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_3),
+        @intFromEnum(Opcode.post_inc),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.return_value),
     };
     const increment_result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &increment_code });
     try std.testing.expectEqual(@as(i32, 7), increment_result.asInt().?);
 
     const decrement_code = [_]u8{
-        @backingInt(Opcode.push_3),
-        @backingInt(Opcode.post_dec),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_3),
+        @intFromEnum(Opcode.post_dec),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.return_value),
     };
     const decrement_result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &decrement_code });
     try std.testing.expectEqual(@as(i32, 5), decrement_result.asInt().?);
@@ -2304,19 +2304,19 @@ test "zRun post increment and decrement leave old and new values on stack" {
 
 test "zRun shifts mask the shift count to five bits" {
     const code = [_]u8{
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.push_3),
-        @backingInt(Opcode.shl),
-        @backingInt(Opcode.push_2),
-        @backingInt(Opcode.push_i8),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.push_3),
+        @intFromEnum(Opcode.shl),
+        @intFromEnum(Opcode.push_2),
+        @intFromEnum(Opcode.push_i8),
         33,
-        @backingInt(Opcode.sar),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.push_4),
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.shr),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.sar),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.push_4),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.shr),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code });
     try std.testing.expectEqual(@as(i32, 11), result.asInt().?);
@@ -2324,19 +2324,19 @@ test "zRun shifts mask the shift count to five bits" {
 
 test "zRun loose equality coerces booleans and matches null with undefined" {
     const boolean_code = [_]u8{
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.push_true),
-        @backingInt(Opcode.eq),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.push_true),
+        @intFromEnum(Opcode.eq),
+        @intFromEnum(Opcode.return_value),
     };
     const boolean_result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &boolean_code });
     try std.testing.expectEqual(true, boolean_result.asBool().?);
 
     const null_code = [_]u8{
-        @backingInt(Opcode.null_value),
-        @backingInt(Opcode.undefined_value),
-        @backingInt(Opcode.eq),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.null_value),
+        @intFromEnum(Opcode.undefined_value),
+        @intFromEnum(Opcode.eq),
+        @intFromEnum(Opcode.return_value),
     };
     const null_result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &null_code });
     try std.testing.expectEqual(true, null_result.asBool().?);
@@ -2344,10 +2344,10 @@ test "zRun loose equality coerces booleans and matches null with undefined" {
 
 test "zRun loose inequality inverts primitive equality" {
     const code = [_]u8{
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.push_true),
-        @backingInt(Opcode.neq),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.push_true),
+        @intFromEnum(Opcode.neq),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code });
     try std.testing.expectEqual(false, result.asBool().?);
@@ -2355,38 +2355,38 @@ test "zRun loose inequality inverts primitive equality" {
 
 test "zRun closure bytecode calls a nested function with frame arguments" {
     const child_code = [_]u8{
-        @backingInt(Opcode.get_arg0),
-        @backingInt(Opcode.push_2),
-        @backingInt(Opcode.add),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.get_arg0),
+        @intFromEnum(Opcode.push_2),
+        @intFromEnum(Opcode.add),
+        @intFromEnum(Opcode.return_value),
     };
     const child = FunctionBytecode{ .code = &child_code, .argument_count = 1 };
     const functions = [_]FunctionBytecode{child};
     const code = [_]u8{
-        @backingInt(Opcode.fclosure),
+        @intFromEnum(Opcode.fclosure),
         0,
         0,
-        @backingInt(Opcode.push_3),
-        @backingInt(Opcode.call),
+        @intFromEnum(Opcode.push_3),
+        @intFromEnum(Opcode.call),
         1,
         0,
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code, .functions = &functions });
     try std.testing.expectEqual(@as(i32, 5), result.asInt().?);
 }
 
 test "zRun compact closure opcode calls a zero-argument function" {
-    const child_code = [_]u8{ @backingInt(Opcode.push_7), @backingInt(Opcode.return_value) };
+    const child_code = [_]u8{ @intFromEnum(Opcode.push_7), @intFromEnum(Opcode.return_value) };
     const child = FunctionBytecode{ .code = &child_code };
     const functions = [_]FunctionBytecode{child};
     const code = [_]u8{
-        @backingInt(Opcode.fclosure8),
+        @intFromEnum(Opcode.fclosure8),
         0,
-        @backingInt(Opcode.call),
+        @intFromEnum(Opcode.call),
         0,
         0,
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code, .functions = &functions });
     try std.testing.expectEqual(@as(i32, 7), result.asInt().?);
@@ -2394,23 +2394,23 @@ test "zRun compact closure opcode calls a zero-argument function" {
 
 test "zRun call rejects non-function values without dereferencing them" {
     const code = [_]u8{
-        @backingInt(Opcode.push_1),
-        @backingInt(Opcode.call),
+        @intFromEnum(Opcode.push_1),
+        @intFromEnum(Opcode.call),
         0,
         0,
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.return_value),
     };
     try std.testing.expectError(error.NotCallable, (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code }));
 }
 
 test "zRun nested function calls stop at the recursion limit" {
     const code = [_]u8{
-        @backingInt(Opcode.fclosure8),
+        @intFromEnum(Opcode.fclosure8),
         0,
-        @backingInt(Opcode.call),
+        @intFromEnum(Opcode.call),
         0,
         0,
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.return_value),
     };
     var functions: [1]FunctionBytecode = undefined;
     functions[0] = .{ .code = &code, .functions = &functions };
@@ -2419,49 +2419,49 @@ test "zRun nested function calls stop at the recursion limit" {
 
 test "zRun catch handler receives a thrown value in the same frame" {
     const code = [_]u8{
-        @backingInt(Opcode.catch_value),
+        @intFromEnum(Opcode.catch_value),
         7,
         0,
         0,
         0,
-        @backingInt(Opcode.push_7),
-        @backingInt(Opcode.throw),
-        @backingInt(Opcode.return_undef),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_7),
+        @intFromEnum(Opcode.throw),
+        @intFromEnum(Opcode.return_undef),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code });
     try std.testing.expectEqual(@as(i32, 7), result.asInt().?);
 }
 
 test "zRun thrown values propagate through nested calls into caller catch" {
-    const child_code = [_]u8{ @backingInt(Opcode.push_5), @backingInt(Opcode.throw) };
+    const child_code = [_]u8{ @intFromEnum(Opcode.push_5), @intFromEnum(Opcode.throw) };
     const child = FunctionBytecode{ .code = &child_code };
     const functions = [_]FunctionBytecode{child};
     const code = [_]u8{
-        @backingInt(Opcode.catch_value),
+        @intFromEnum(Opcode.catch_value),
         10,
         0,
         0,
         0,
-        @backingInt(Opcode.fclosure8),
+        @intFromEnum(Opcode.fclosure8),
         0,
-        @backingInt(Opcode.call),
+        @intFromEnum(Opcode.call),
         0,
         0,
-        @backingInt(Opcode.return_undef),
-        @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.return_undef),
+        @intFromEnum(Opcode.return_value),
     };
     const result = try (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code, .functions = &functions });
     try std.testing.expectEqual(@as(i32, 5), result.asInt().?);
 }
 
 test "zRun uncaught throw reports an exception outcome" {
-    const code = [_]u8{ @backingInt(Opcode.push_3), @backingInt(Opcode.throw) };
+    const code = [_]u8{ @intFromEnum(Opcode.push_3), @intFromEnum(Opcode.throw) };
     try std.testing.expectError(error.UncaughtException, (VM{ .allocator = std.testing.allocator }).execute(.{ .code = &code }));
 }
 
 test "zRun execution outcome preserves the uncaught exception value" {
-    const code = [_]u8{ @backingInt(Opcode.push_4), @backingInt(Opcode.throw) };
+    const code = [_]u8{ @intFromEnum(Opcode.push_4), @intFromEnum(Opcode.throw) };
     const outcome = try (VM{ .allocator = std.testing.allocator }).executeOutcome(.{ .code = &code });
     switch (outcome) {
         .value => return error.TestUnexpectedResult,
@@ -2476,10 +2476,10 @@ test "zRun execution outcome preserves the uncaught exception value" {
 test "zRun VM calls an externally supplied native function module" {
     const constants = [_]Value{Value.shortFunction(0)};
     const code = [_]u8{
-        @backingInt(Opcode.push_const8), 0,
-        @backingInt(Opcode.push_i8),     9,
-        @backingInt(Opcode.call),        1,
-        0,                               @backingInt(Opcode.return_value),
+        @intFromEnum(Opcode.push_const8), 0,
+        @intFromEnum(Opcode.push_i8),     9,
+        @intFromEnum(Opcode.call),        1,
+        0,                               @intFromEnum(Opcode.return_value),
     };
     const natives = [_]VM.NativeFunction{nativeDouble};
     const function = FunctionBytecode{ .code = &code, .constants = &constants };

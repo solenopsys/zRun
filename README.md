@@ -12,23 +12,20 @@ The source compiler and runtime focus on the language constructs and runtime API
 
 The tables below summarize implemented source-language constructs and runtime APIs.
 
-<details>
-<summary>Values and expressions</summary>
+### Values and expressions
 
 | Area | Implemented features |
 |---|---|
 | Values | &bull; `undefined`, `null`, booleans<br>&bull; Integer, hexadecimal, and BigInt literals; runtime floating-point values<br>&bull; Arbitrary-precision BigInt arithmetic<br>&bull; Strings and template interpolation |
 | Bindings | &bull; `var`, `let`, and `const`<br>&bull; Local assignment and closures<br>&bull; Captured mutable values |
-| Expressions | &bull; Arithmetic and loose/strict comparisons<br>&bull; Short-circuit `&&`/`||`; ternary and nullish expressions<br>&bull; Increments and compound assignments<br>&bull; `typeof`, `in`, and `instanceof` |
-| Bitwise operations | &bull; `&`, `|`, and `^`<br>&bull; `<<`, `>>`, and unsigned right shift `>>>` |
+| Expressions | &bull; Arithmetic and loose/strict comparisons<br>&bull; Short-circuit `&&`/`\|\|`; ternary and nullish expressions<br>&bull; Increments and compound assignments<br>&bull; `typeof`, `in`, and `instanceof` |
+| Bitwise operations | &bull; `&`, `\|`, and `^`<br>&bull; `<<`, `>>`, and unsigned right shift `>>>` |
 | Property access | &bull; Dot and computed reads/writes<br>&bull; Optional dot/computed access<br>&bull; Array and string `length` |
 | Strings | &bull; Quoted literals and escapes<br>&bull; Concatenation and `${...}` interpolation |
 
 Coverage: [values and arithmetic](verification/01_basics/), [operators and optional access](verification/02_language/).
-</details>
 
-<details>
-<summary>Statements and control flow</summary>
+### Statements and control flow
 
 | Area | Implemented features |
 |---|---|
@@ -36,10 +33,8 @@ Coverage: [values and arithmetic](verification/01_basics/), [operators and optio
 | Exceptions | &bull; `throw` and `try`/`catch`<br>&bull; Synchronous `finally`<br>&bull; Propagation through function calls |
 
 Coverage: [language control flow](verification/02_language/loops.js), [runtime control flow](verification/03_runtime/).
-</details>
 
-<details>
-<summary>Functions and classes</summary>
+### Functions and classes
 
 | Area | Implemented features |
 |---|---|
@@ -52,7 +47,6 @@ Coverage: [language control flow](verification/02_language/loops.js), [runtime c
 | Function invocation | &bull; `.call()`<br>&bull; `.bind()` |
 
 Coverage: [function syntax](verification/02_language/functions.js), [closures and call behavior](verification/03_runtime/functions.js), [class syntax](verification/02_language/class.js).
-</details>
 
 Async functions can use `await`. Embedded Zig hosts start a script with `VM.executeAsync`; when it returns `.suspended`, the host handles the awaited request and later calls `VM.resumeExecution` with the result or rejection. The continuation owns the VM frames until it completes or the host deinitializes it. Promise objects and a built-in event loop are not part of this first implementation; the command-line runners remain synchronous.
 
@@ -88,8 +82,7 @@ _ = modules.remove("users");
 replacement under the same name. The registry and its modules are host-owned
 and are not internally synchronized.
 
-<details>
-<summary>Objects, arrays, and collections</summary>
+### Objects, arrays, and collections
 
 | Area | Implemented features |
 |---|---|
@@ -101,10 +94,8 @@ and are not internally synchronized.
 | Regular expressions | &bull; Literal patterns with `i`/`g` flags<br>&bull; `.test()`<br>&bull; String replacement operations |
 
 Coverage: [arrays and objects](verification/02_language/arrays.js), [collections](verification/02_language/collections.js), [regular expressions](verification/02_language/regexp.js).
-</details>
 
-<details>
-<summary>Built-ins and host runtime</summary>
+### Built-ins and host runtime
 
 | Area | Implemented features |
 |---|---|
@@ -118,10 +109,8 @@ Coverage: [arrays and objects](verification/02_language/arrays.js), [collections
 | Host integration | &bull; `print`<br>&bull; The `__host` bridge and `--host-json` input |
 
 Coverage: [runtime APIs](verification/02_language/apis.js), [host primitives](verification/02_language/host_runtime_primitives.js).
-</details>
 
-<details>
-<summary>Bytecode runtime</summary>
+### Bytecode runtime
 
 | Area | Implemented features |
 |---|---|
@@ -129,7 +118,6 @@ Coverage: [runtime APIs](verification/02_language/apis.js), [host primitives](ve
 | Runtime values | &bull; Object-store backed arrays, objects, and strings<br>&bull; Closures, collections, and regular-expression values |
 
 Coverage: [bytecode fixtures](verification/04_bytecode/) and [checked-in images](src/testdata/).
-</details>
 
 ## Requirements
 

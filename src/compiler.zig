@@ -1358,9 +1358,7 @@ const Parser = struct {
             try self.advance();
             try self.emitLocalGet(index);
             try self.emit(.inc);
-            try self.emit(.dup);
             try self.emitLocalPut(index);
-            try self.emit(.drop);
             try self.expect(.semicolon);
             return;
         }
@@ -1386,9 +1384,7 @@ const Parser = struct {
                 .or_assign => .or_op,
                 else => unreachable,
             });
-            try self.emit(.dup);
             try self.emitLocalPut(index);
-            try self.emit(.drop);
             try self.expect(.semicolon);
             return;
         }

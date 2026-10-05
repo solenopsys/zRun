@@ -584,6 +584,7 @@ test "async session reuses its VM and releases request objects between invocatio
     const session = try AsyncSession.create(allocator, program.functions[0], .{});
     defer session.deinit();
     const vm_address = @intFromPtr(&session.vm);
+    const baseline_object_count = session.objects.objects.items.len;
     try std.testing.expectEqual(@intFromPtr(&session.request_arena), @intFromPtr(session.vm.allocator.ptr));
 
     try session.beginRequest("{\"path\":\"/first\"}", &.{});
@@ -601,7 +602,7 @@ test "async session reuses its VM and releases request objects between invocatio
     try std.testing.expect(session.request_arena.queryCapacity() <= max_request_arena_capacity);
     try std.testing.expectEqual(@as(usize, 0), session.objects.strings.items.len);
     try std.testing.expectEqual(@as(usize, 0), session.objects.arrays.items.len);
-    try std.testing.expectEqual(@as(usize, 1), session.objects.objects.items.len);
+    try std.testing.expectEqual(baseline_object_count, session.objects.objects.items.len);
     try std.testing.expectEqual(@as(usize, 0), session.objects.regexes.items.len);
     try std.testing.expectEqualStrings("", session.outputBytes());
     try std.testing.expectEqualStrings("{\"path\":\"/second\"}", session.context.host_json);

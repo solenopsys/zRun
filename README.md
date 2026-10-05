@@ -185,6 +185,15 @@ This runs Zig unit tests followed by the language fixtures in increasing levels 
 
 ## Performance
 
+`performance/scripts/run.py` compiles the same JavaScript independently with
+MQuickJS and zRun, then executes each engine's own artifact. Compilation and
+execution have separate timers and raw samples can be saved with `--json`.
+Both phases include process startup and their respective file I/O; builds are
+excluded. Use `--suite all` for the CLI and language-feature workloads. The
+historical same-bytecode CLI results below used the earlier version of this
+script; the optional in-process comparator still measures identical upstream
+images.
+
 Measurements captured on 2026-09-29 on Linux x86_64, AMD Ryzen 7 8845H, Zig 0.16.0. Ratios are reference time / zRun time; below `1.00x` means zRun was slower. Suites have different workloads and timing scopes, so compare results only within each row.
 
 Run the full benchmark set from the repository root. Set these paths to the installed MQuickJS executable, QuickJS executable, and MQuickJS source checkout. The command runs all suites represented below; it does not use V8.
@@ -222,7 +231,7 @@ for source in performance/workloads/inprocess/*.js; do
   "$MQJS" -o "$image" "$source"
   zig build compare -Doptimize=fast -- "$image"
 done
-python3 performance/scripts/run.py "$MQJS"
+python3 performance/scripts/run.py "$MQJS" --suite all --json /tmp/zrun-pipeline.json
 python3 performance/scripts/run_features.py "$MQJS"
 python3 performance/scripts/run_quickjs.py --quickjs "$QJS"
 zig build compile-bench -Doptimize=fast

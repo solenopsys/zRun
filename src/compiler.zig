@@ -324,6 +324,7 @@ const TokenKind = enum {
     false_kw,
     null_kw,
     undefined_kw,
+    void_kw,
     this_kw,
     new_kw,
 };
@@ -336,7 +337,7 @@ const Token = struct {
 
 fn isIdentifierName(kind: TokenKind) bool {
     return switch (kind) {
-        .identifier, .let_kw, .const_kw, .var_kw, .if_kw, .while_kw, .do_kw, .for_kw, .switch_kw, .case_kw, .default_kw, .in_kw, .instanceof_kw, .typeof_kw, .class_kw, .of_kw, .break_kw, .continue_kw, .function_kw, .return_kw, .try_kw, .catch_kw, .finally_kw, .throw_kw, .else_kw, .true_kw, .false_kw, .null_kw, .undefined_kw, .this_kw, .new_kw => true,
+        .identifier, .let_kw, .const_kw, .var_kw, .if_kw, .while_kw, .do_kw, .for_kw, .switch_kw, .case_kw, .default_kw, .in_kw, .instanceof_kw, .typeof_kw, .void_kw, .class_kw, .of_kw, .break_kw, .continue_kw, .function_kw, .return_kw, .try_kw, .catch_kw, .finally_kw, .throw_kw, .else_kw, .true_kw, .false_kw, .null_kw, .undefined_kw, .this_kw, .new_kw => true,
         else => false,
     };
 }
@@ -491,6 +492,34 @@ fn sourceDeclaresName(source: []const u8, name: []const u8) bool {
             while (cursor < source.len and (std.ascii.isAlphanumeric(source[cursor]) or source[cursor] == '_' or source[cursor] == '$')) : (cursor += 1) {}
             const word = source[start..cursor];
             if (std.mem.eql(u8, word, "var") or std.mem.eql(u8, word, "let") or std.mem.eql(u8, word, "const")) {
+                var next = cursor;
+                while (next < source.len and std.ascii.isWhitespace(source[next])) : (next += 1) {}
+                if (next < source.len and source[next] == '{') {
+                    next += 1;
+                    while (next < source.len and source[next] != '}') {
+                        while (next < source.len and (std.ascii.isWhitespace(source[next]) or source[next] == ',')) : (next += 1) {}
+                        if (next >= source.len or source[next] == '}') break;
+                        if (!(std.ascii.isAlphabetic(source[next]) or source[next] == '_' or source[next] == '$')) break;
+                        const key_start = next;
+                        next += 1;
+                        while (next < source.len and (std.ascii.isAlphanumeric(source[next]) or source[next] == '_' or source[next] == '$')) : (next += 1) {}
+                        const key = source[key_start..next];
+                        while (next < source.len and std.ascii.isWhitespace(source[next])) : (next += 1) {}
+                        var binding = key;
+                        if (next < source.len and source[next] == ':') {
+                            next += 1;
+                            while (next < source.len and std.ascii.isWhitespace(source[next])) : (next += 1) {}
+                            const binding_start = next;
+                            if (next >= source.len or !(std.ascii.isAlphabetic(source[next]) or source[next] == '_' or source[next] == '$')) break;
+                            next += 1;
+                            while (next < source.len and (std.ascii.isAlphanumeric(source[next]) or source[next] == '_' or source[next] == '$')) : (next += 1) {}
+                            binding = source[binding_start..next];
+                        }
+                        if (std.mem.eql(u8, binding, name)) return true;
+                        while (next < source.len and std.ascii.isWhitespace(source[next])) : (next += 1) {}
+                        if (next < source.len and source[next] == ',') next += 1 else break;
+                    }
+                }
                 in_declaration = true;
                 expect_binding = true;
                 continue;
@@ -579,6 +608,8 @@ const Parser = struct {
         continue_count: usize = 0,
     };
 
+    const ObjectBinding = struct { key: []const u8, local: u16 };
+
     fn deinit(self: *Parser) void {
         self.code.deinit(self.allocator);
         self.locals.deinit(self.allocator);
@@ -632,7 +663,7 @@ const Parser = struct {
                 self.offset += 1;
             }
             const word = self.source[start..self.offset];
-            const kind: TokenKind = if (std.mem.eql(u8, word, "let")) .let_kw else if (std.mem.eql(u8, word, "const")) .const_kw else if (std.mem.eql(u8, word, "var")) .var_kw else if (std.mem.eql(u8, word, "if")) .if_kw else if (std.mem.eql(u8, word, "while")) .while_kw else if (std.mem.eql(u8, word, "do")) .do_kw else if (std.mem.eql(u8, word, "for")) .for_kw else if (std.mem.eql(u8, word, "switch")) .switch_kw else if (std.mem.eql(u8, word, "case")) .case_kw else if (std.mem.eql(u8, word, "default")) .default_kw else if (std.mem.eql(u8, word, "in")) .in_kw else if (std.mem.eql(u8, word, "of")) .of_kw else if (std.mem.eql(u8, word, "instanceof")) .instanceof_kw else if (std.mem.eql(u8, word, "typeof")) .typeof_kw else if (std.mem.eql(u8, word, "class")) .class_kw else if (std.mem.eql(u8, word, "break")) .break_kw else if (std.mem.eql(u8, word, "continue")) .continue_kw else if (std.mem.eql(u8, word, "function")) .function_kw else if (std.mem.eql(u8, word, "return")) .return_kw else if (std.mem.eql(u8, word, "try")) .try_kw else if (std.mem.eql(u8, word, "catch")) .catch_kw else if (std.mem.eql(u8, word, "finally")) .finally_kw else if (std.mem.eql(u8, word, "throw")) .throw_kw else if (std.mem.eql(u8, word, "else")) .else_kw else if (std.mem.eql(u8, word, "true")) .true_kw else if (std.mem.eql(u8, word, "false")) .false_kw else if (std.mem.eql(u8, word, "null")) .null_kw else if (std.mem.eql(u8, word, "undefined")) .undefined_kw else if (std.mem.eql(u8, word, "this")) .this_kw else if (std.mem.eql(u8, word, "new")) .new_kw else .identifier;
+            const kind: TokenKind = if (std.mem.eql(u8, word, "let")) .let_kw else if (std.mem.eql(u8, word, "const")) .const_kw else if (std.mem.eql(u8, word, "var")) .var_kw else if (std.mem.eql(u8, word, "if")) .if_kw else if (std.mem.eql(u8, word, "while")) .while_kw else if (std.mem.eql(u8, word, "do")) .do_kw else if (std.mem.eql(u8, word, "for")) .for_kw else if (std.mem.eql(u8, word, "switch")) .switch_kw else if (std.mem.eql(u8, word, "case")) .case_kw else if (std.mem.eql(u8, word, "default")) .default_kw else if (std.mem.eql(u8, word, "in")) .in_kw else if (std.mem.eql(u8, word, "of")) .of_kw else if (std.mem.eql(u8, word, "instanceof")) .instanceof_kw else if (std.mem.eql(u8, word, "typeof")) .typeof_kw else if (std.mem.eql(u8, word, "void")) .void_kw else if (std.mem.eql(u8, word, "class")) .class_kw else if (std.mem.eql(u8, word, "break")) .break_kw else if (std.mem.eql(u8, word, "continue")) .continue_kw else if (std.mem.eql(u8, word, "function")) .function_kw else if (std.mem.eql(u8, word, "return")) .return_kw else if (std.mem.eql(u8, word, "try")) .try_kw else if (std.mem.eql(u8, word, "catch")) .catch_kw else if (std.mem.eql(u8, word, "finally")) .finally_kw else if (std.mem.eql(u8, word, "throw")) .throw_kw else if (std.mem.eql(u8, word, "else")) .else_kw else if (std.mem.eql(u8, word, "true")) .true_kw else if (std.mem.eql(u8, word, "false")) .false_kw else if (std.mem.eql(u8, word, "null")) .null_kw else if (std.mem.eql(u8, word, "undefined")) .undefined_kw else if (std.mem.eql(u8, word, "this")) .this_kw else if (std.mem.eql(u8, word, "new")) .new_kw else .identifier;
             self.current = .{ .kind = kind, .start = start, .end = self.offset };
             return;
         }
@@ -643,6 +674,19 @@ const Parser = struct {
                 while (self.offset < self.source.len and std.ascii.isHex(self.source[self.offset])) self.offset += 1;
             } else {
                 while (self.offset < self.source.len and std.ascii.isDigit(self.source[self.offset])) self.offset += 1;
+                if (self.offset < self.source.len and self.source[self.offset] == '.' and
+                    self.offset + 1 < self.source.len and std.ascii.isDigit(self.source[self.offset + 1]))
+                {
+                    self.offset += 1;
+                    while (self.offset < self.source.len and std.ascii.isDigit(self.source[self.offset])) self.offset += 1;
+                }
+                if (self.offset < self.source.len and (self.source[self.offset] == 'e' or self.source[self.offset] == 'E')) {
+                    self.offset += 1;
+                    if (self.offset < self.source.len and (self.source[self.offset] == '+' or self.source[self.offset] == '-')) self.offset += 1;
+                    const exponent_start = self.offset;
+                    while (self.offset < self.source.len and std.ascii.isDigit(self.source[self.offset])) self.offset += 1;
+                    if (self.offset == exponent_start) return error.InvalidInteger;
+                }
             }
             const kind: TokenKind = if (self.take('n')) .bigint else .number;
             self.current = .{ .kind = kind, .start = start, .end = self.offset };
@@ -727,6 +771,12 @@ const Parser = struct {
         return cursor < self.source.len and self.source[cursor] == '(';
     }
 
+    fn nextIsDot(self: *Parser) bool {
+        var cursor = self.offset;
+        while (cursor < self.source.len and std.ascii.isWhitespace(self.source[cursor])) cursor += 1;
+        return cursor < self.source.len and self.source[cursor] == '.';
+    }
+
     fn statement(self: *Parser) Error!void {
         switch (self.current.kind) {
             .semicolon => try self.advance(),
@@ -773,7 +823,7 @@ const Parser = struct {
                 } else if (self.locals.contains(name) or std.mem.eql(u8, name, "print")) {
                     try self.identifierStatement();
                 } else {
-                    try self.expression(1);
+                    try self.expressionSequence();
                     try self.expect(.semicolon);
                     try self.emitLocalPut(0);
                 }
@@ -1467,7 +1517,33 @@ const Parser = struct {
         try self.expect(.left_paren);
         if (self.current.kind == .let_kw or self.current.kind == .const_kw or self.current.kind == .var_kw) {
             try self.advance();
-            if (self.current.kind == .left_bracket) {
+            if (self.current.kind == .left_brace) {
+                var bindings: std.ArrayList(ObjectBinding) = .empty;
+                defer bindings.deinit(self.allocator);
+                try self.advance();
+                while (self.current.kind != .right_brace) {
+                    if (self.current.kind != .identifier and self.current.kind != .string) return error.ExpectedIdentifier;
+                    const key = if (self.current.kind == .identifier) self.lexeme() else self.source[self.current.start + 1 .. self.current.end - 1];
+                    try self.advance();
+                    const binding = if (self.current.kind == .colon) blk: {
+                        try self.advance();
+                        if (self.current.kind != .identifier) return error.ExpectedIdentifier;
+                        const alias = self.lexeme();
+                        try self.advance();
+                        break :blk alias;
+                    } else key;
+                    const local = self.locals.get(binding) orelse try self.declareLocal(binding);
+                    bindings.append(self.allocator, .{ .key = key, .local = local }) catch return error.OutOfMemory;
+                    if (self.current.kind != .comma) break;
+                    try self.advance();
+                }
+                try self.expect(.right_brace);
+                if (self.current.kind != .in_kw and self.current.kind != .of_kw) return error.UnexpectedToken;
+                const is_in = self.current.kind == .in_kw;
+                try self.advance();
+                const target = try self.declareTempLocal("for_object_target");
+                return self.forEachObjectStatement(target, is_in, bindings.items);
+            } else if (self.current.kind == .left_bracket) {
                 try self.advance();
                 var slots: std.ArrayList(?u16) = .empty;
                 defer slots.deinit(self.allocator);
@@ -1575,8 +1651,9 @@ const Parser = struct {
     }
 
     fn forEachStatement(self: *Parser, target: u16, is_in: bool, destructured: []const ?u16) Error!void {
-        try self.expression(1);
-        if (is_in) try self.emit(.object_keys);
+        // A for-in/of RHS is an Expression, so a comma expression such as
+        // `for (key in target = {}, source)` must be consumed as one value.
+        try self.forEachRightHandSide(is_in);
         const iterable = try self.declareTempLocal("iterator");
         try self.emitLocalPut(iterable);
         const index = try self.declareTempLocal("index");
@@ -1618,6 +1695,55 @@ const Parser = struct {
         try self.patchBranch(exit_branch, end);
         for (context.break_operands[0..context.break_count]) |operand| try self.patchBranch(operand, end);
         self.loop_depth -= 1;
+    }
+
+    fn forEachObjectStatement(self: *Parser, target: u16, is_in: bool, bindings: []const ObjectBinding) Error!void {
+        try self.forEachRightHandSide(is_in);
+        const iterable = try self.declareTempLocal("object_iterator");
+        try self.emitLocalPut(iterable);
+        const index = try self.declareTempLocal("object_index");
+        try self.emitInteger(0);
+        try self.emitLocalPut(index);
+        const loop_start = self.code.items.len;
+        try self.emitLocalGet(index);
+        try self.emitLocalGet(iterable);
+        try self.emit(.get_length);
+        try self.emit(.lt);
+        const exit_branch = try self.emitBranch(.if_false);
+        try self.emitLocalGet(iterable);
+        try self.emitLocalGet(index);
+        try self.emit(.get_array_el);
+        try self.emitLocalPut(target);
+        for (bindings) |binding| {
+            const key = try self.addStringConstant(binding.key);
+            try self.emitLocalGet(target);
+            try self.emit(.get_field);
+            try self.emitU16(@intCast(key));
+            try self.emitLocalPut(binding.local);
+        }
+        try self.expect(.right_paren);
+        if (self.loop_depth == self.loops.len) return error.LoopNestingExceeded;
+        const context_index = self.loop_depth;
+        self.loops[context_index] = .{ .continue_target = null };
+        self.loop_depth += 1;
+        try self.statement();
+        const continue_target = self.code.items.len;
+        const context = &self.loops[context_index];
+        for (context.continue_operands[0..context.continue_count]) |operand| try self.patchBranch(operand, continue_target);
+        try self.emitLocalGet(index);
+        try self.emit(.inc);
+        try self.emitLocalPut(index);
+        const repeat = try self.emitBranch(.goto);
+        try self.patchBranch(repeat, loop_start);
+        const end = self.code.items.len;
+        try self.patchBranch(exit_branch, end);
+        for (context.break_operands[0..context.break_count]) |operand| try self.patchBranch(operand, end);
+        self.loop_depth -= 1;
+    }
+
+    fn forEachRightHandSide(self: *Parser, is_in: bool) Error!void {
+        try self.expressionSequence();
+        if (is_in) try self.emit(.object_keys);
     }
 
     fn switchStatement(self: *Parser) Error!void {
@@ -1863,6 +1989,28 @@ const Parser = struct {
             }
             if (self.current.kind == .optional_dot) {
                 try self.advance();
+                if (self.current.kind == .left_paren) {
+                    // Optional call (`value?.(args)`). Keep the callable on
+                    // the stack while checking nullishness so arguments are
+                    // evaluated only on the call path.
+                    try self.emit(.dup);
+                    try self.emit(.null_value);
+                    try self.emit(.strict_eq);
+                    const null_call = try self.emitBranch(.if_true);
+                    try self.emit(.dup);
+                    try self.emit(.undefined_value);
+                    try self.emit(.strict_eq);
+                    const undefined_call = try self.emitBranch(.if_true);
+                    try self.callSuffix();
+                    const call_done = try self.emitBranch(.goto);
+                    const null_target = self.code.items.len;
+                    try self.patchBranch(null_call, null_target);
+                    try self.patchBranch(undefined_call, null_target);
+                    try self.emit(.drop);
+                    try self.emit(.undefined_value);
+                    try self.patchBranch(call_done, self.code.items.len);
+                    continue;
+                }
                 try self.emit(.dup);
                 try self.emit(.null_value);
                 try self.emit(.strict_eq);
@@ -1958,6 +2106,12 @@ const Parser = struct {
         switch (token.kind) {
             .number => {
                 const number_text = self.lexeme();
+                if (std.mem.indexOfAny(u8, number_text, ".eE") != null) {
+                    const value = std.fmt.parseFloat(f64, number_text) catch return error.InvalidInteger;
+                    _ = try self.emitConstant(Value.fromFloat64(value));
+                    try self.advance();
+                    return;
+                }
                 const value: i64 = if (std.mem.startsWith(u8, number_text, "0x") or std.mem.startsWith(u8, number_text, "0X"))
                     std.fmt.parseInt(i64, number_text[2..], 16) catch return error.InvalidInteger
                 else
@@ -1994,6 +2148,12 @@ const Parser = struct {
                 try self.emit(.undefined_value);
                 try self.advance();
             },
+            .void_kw => {
+                try self.advance();
+                try self.prefix();
+                try self.emit(.drop);
+                try self.emit(.undefined_value);
+            },
             .identifier => {
                 const name = self.lexeme();
                 if (std.mem.eql(u8, name, "await")) {
@@ -2019,6 +2179,41 @@ const Parser = struct {
                 } else if (std.mem.eql(u8, name, "Object") and self.nextIsLeftParen()) {
                     try self.advance();
                     _ = try self.emitConstant(Value.shortFunction(56));
+                    try self.callSuffix();
+                    return;
+                } else if (std.mem.eql(u8, name, "Object") and self.nextIsDot()) {
+                    try self.advance();
+                    try self.expect(.dot);
+                    if (self.current.kind != .identifier) return error.ExpectedIdentifier;
+                    const property = self.lexeme();
+                    if (std.mem.eql(u8, property, "prototype")) {
+                        try self.emit(.push_global_this);
+                        const object_key = try self.addStringConstant("Object");
+                        try self.emit(.get_field);
+                        try self.emitU16(@intCast(object_key));
+                        const prototype_key = try self.addStringConstant("prototype");
+                        try self.emit(.get_field);
+                        try self.emitU16(@intCast(prototype_key));
+                        try self.advance();
+                        try self.callSuffix();
+                        return;
+                    }
+                    const native_index = builtinFunction("Object", property) orelse return error.UnknownIdentifier;
+                    _ = try self.emitConstant(Value.shortFunction(native_index));
+                    try self.advance();
+                    try self.callSuffix();
+                    return;
+                } else if (std.mem.eql(u8, name, "Object")) {
+                    try self.emit(.push_global_this);
+                    const property_index = try self.addStringConstant("Object");
+                    try self.emit(.get_field);
+                    try self.emitU16(@intCast(property_index));
+                    try self.advance();
+                    try self.callSuffix();
+                    return;
+                } else if (std.mem.eql(u8, name, "Array") and self.nextIsLeftParen()) {
+                    try self.advance();
+                    _ = try self.emitConstant(Value.shortFunction(60));
                     try self.callSuffix();
                     return;
                 } else if (std.mem.eql(u8, name, "BigInt")) {
@@ -2100,6 +2295,8 @@ const Parser = struct {
                     _ = try self.emitConstant(Value.shortFunction(44));
                 } else if (std.mem.eql(u8, name, "encodeURIComponent")) {
                     _ = try self.emitConstant(Value.shortFunction(45));
+                } else if (std.mem.eql(u8, name, "parseInt")) {
+                    _ = try self.emitConstant(Value.shortFunction(61));
                 } else if (isUnavailableHostGlobal(name)) {
                     try self.emit(.undefined_value);
                 } else {
@@ -2345,6 +2542,67 @@ const Parser = struct {
                     try self.advance();
                 }
                 try self.expect(.right_bracket);
+            } else if (self.current.kind == .left_brace) {
+                const synthetic = try self.syntheticParameterName(parameter_index);
+                parameter_index += 1;
+                parameters.append(self.allocator, synthetic) catch return error.OutOfMemory;
+                try self.advance();
+                var excluded_keys: std.ArrayList([]const u8) = .empty;
+                defer excluded_keys.deinit(self.allocator);
+                var rest_name: ?[]const u8 = null;
+                var rest_key_name: ?[]const u8 = null;
+                while (self.current.kind != .right_brace) {
+                    if (self.current.kind == .ellipsis) {
+                        try self.advance();
+                        if (self.current.kind != .identifier) return error.ExpectedIdentifier;
+                        rest_name = self.lexeme();
+                        try self.advance();
+                        rest_key_name = try std.fmt.allocPrint(self.allocator, "{s}_rest_key", .{synthetic});
+                        break;
+                    }
+                    if (self.current.kind != .identifier and self.current.kind != .string) return error.ExpectedIdentifier;
+                    const property = if (self.current.kind == .identifier)
+                        self.lexeme()
+                    else
+                        self.source[self.current.start + 1 .. self.current.end - 1];
+                    excluded_keys.append(self.allocator, property) catch return error.OutOfMemory;
+                    try self.advance();
+                    const binding = if (self.current.kind == .colon) blk: {
+                        try self.advance();
+                        if (self.current.kind != .identifier) return error.ExpectedIdentifier;
+                        const alias = self.lexeme();
+                        try self.advance();
+                        break :blk alias;
+                    } else property;
+                    const declaration = try std.fmt.allocPrint(
+                        self.allocator,
+                        "var {s} = {s}.{s};\n",
+                        .{ binding, synthetic, property },
+                    );
+                    defer self.allocator.free(declaration);
+                    prologue.appendSlice(self.allocator, declaration) catch return error.OutOfMemory;
+                    try self.appendDefaultParameter(binding, &prologue);
+                    if (self.current.kind != .comma) break;
+                    try self.advance();
+                }
+                try self.expect(.right_brace);
+                if (rest_name) |rest| {
+                    const key_name = rest_key_name.?;
+                    const start = try std.fmt.allocPrint(self.allocator, "var {s} = {{}}; for (var {s} in {s}) {{ if (", .{ rest, key_name, synthetic });
+                    defer self.allocator.free(start);
+                    prologue.appendSlice(self.allocator, start) catch return error.OutOfMemory;
+                    if (excluded_keys.items.len == 0) prologue.appendSlice(self.allocator, "true") catch return error.OutOfMemory;
+                    for (excluded_keys.items, 0..) |key, index| {
+                        if (index != 0) prologue.appendSlice(self.allocator, " && ") catch return error.OutOfMemory;
+                        const condition = try std.fmt.allocPrint(self.allocator, "{s} !== \"{s}\"", .{ key_name, key });
+                        defer self.allocator.free(condition);
+                        prologue.appendSlice(self.allocator, condition) catch return error.OutOfMemory;
+                    }
+                    const finish = try std.fmt.allocPrint(self.allocator, ") {s}[{s}] = {s}[{s}]; }}\n", .{ rest, key_name, synthetic, key_name });
+                    defer self.allocator.free(finish);
+                    prologue.appendSlice(self.allocator, finish) catch return error.OutOfMemory;
+                    self.allocator.free(key_name);
+                }
             } else return error.ExpectedIdentifier;
             if (self.current.kind != .comma) break;
             try self.advance();
@@ -2550,7 +2808,11 @@ const Parser = struct {
                         _ = try self.declareLocal(self.source[name_start..cursor]);
                     }
                 }
-                if (depth == 0 and std.mem.eql(u8, self.source[start..cursor], "var")) {
+                // Function-scoped `var` declarations also occur inside one
+                // block layer (for example a top-level `if`). Keep nested
+                // callback/function bodies out of this pass; they are hoisted
+                // by their own compileUnit invocation.
+                if (depth <= 1 and std.mem.eql(u8, self.source[start..cursor], "var")) {
                     while (cursor < self.source.len and std.ascii.isWhitespace(self.source[cursor])) : (cursor += 1) {}
                     if (cursor < self.source.len and (std.ascii.isAlphabetic(self.source[cursor]) or self.source[cursor] == '_' or self.source[cursor] == '$')) {
                         const name_start = cursor;
@@ -2558,6 +2820,40 @@ const Parser = struct {
                         while (cursor < self.source.len and (std.ascii.isAlphanumeric(self.source[cursor]) or self.source[cursor] == '_' or self.source[cursor] == '$')) : (cursor += 1) {}
                         const name = self.source[name_start..cursor];
                         if (!self.locals.contains(name)) _ = try self.declareLocal(name);
+                    } else if (cursor < self.source.len and self.source[cursor] == '{') {
+                        // The parser supports simple object binding patterns in
+                        // variable declarations. Hoist their local names too:
+                        // generated code can reference a binding before the
+                        // destructuring declaration, as Preact's hooks runtime
+                        // does for `var { shouldComponentUpdate: c } = ...`.
+                        cursor += 1;
+                        while (cursor < self.source.len) {
+                            while (cursor < self.source.len and std.ascii.isWhitespace(self.source[cursor])) : (cursor += 1) {}
+                            if (cursor >= self.source.len or self.source[cursor] == '}') break;
+                            const key_start = cursor;
+                            if (!(std.ascii.isAlphabetic(self.source[cursor]) or self.source[cursor] == '_' or self.source[cursor] == '$')) break;
+                            cursor += 1;
+                            while (cursor < self.source.len and (std.ascii.isAlphanumeric(self.source[cursor]) or self.source[cursor] == '_' or self.source[cursor] == '$')) : (cursor += 1) {}
+                            const key = self.source[key_start..cursor];
+                            while (cursor < self.source.len and std.ascii.isWhitespace(self.source[cursor])) : (cursor += 1) {}
+                            var binding_name = key;
+                            if (cursor < self.source.len and self.source[cursor] == ':') {
+                                cursor += 1;
+                                while (cursor < self.source.len and std.ascii.isWhitespace(self.source[cursor])) : (cursor += 1) {}
+                                const binding_start = cursor;
+                                if (cursor >= self.source.len or !(std.ascii.isAlphabetic(self.source[cursor]) or self.source[cursor] == '_' or self.source[cursor] == '$')) break;
+                                cursor += 1;
+                                while (cursor < self.source.len and (std.ascii.isAlphanumeric(self.source[cursor]) or self.source[cursor] == '_' or self.source[cursor] == '$')) : (cursor += 1) {}
+                                binding_name = self.source[binding_start..cursor];
+                            }
+                            if (!self.locals.contains(binding_name)) _ = try self.declareLocal(binding_name);
+                            while (cursor < self.source.len and std.ascii.isWhitespace(self.source[cursor])) : (cursor += 1) {}
+                            if (cursor < self.source.len and self.source[cursor] == ',') {
+                                cursor += 1;
+                                continue;
+                            }
+                            break;
+                        }
                     }
                 }
                 statement_start = false;
@@ -2752,6 +3048,45 @@ const Parser = struct {
                     });
                     try self.emit(.put_field);
                     try self.emitU16(@intCast(property_index));
+                } else if (std.mem.eql(u8, property, "apply") and self.current.kind == .left_paren) {
+                    // Lower Function.prototype.apply to the existing method-spread
+                    // instruction. The callee is already on the stack; preserve it
+                    // while parsing thisArg and the optional argument array.
+                    const callee = try self.declareTempLocal("apply_callee");
+                    const receiver = try self.declareTempLocal("apply_receiver");
+                    const arguments = try self.declareTempLocal("apply_arguments");
+                    try self.emitLocalPut(callee);
+                    try self.advance();
+                    if (self.current.kind == .right_paren) {
+                        try self.emit(.undefined_value);
+                        try self.emitLocalPut(receiver);
+                        try self.emit(.array_from);
+                        try self.emitU16(0);
+                        try self.emitLocalPut(arguments);
+                    } else {
+                        try self.expression(1);
+                        try self.emitLocalPut(receiver);
+                        if (self.current.kind == .comma) {
+                            try self.advance();
+                            try self.expression(1);
+                            try self.emitLocalPut(arguments);
+                            while (self.current.kind == .comma) {
+                                try self.advance();
+                                try self.expression(1);
+                            }
+                        } else {
+                            try self.emit(.array_from);
+                            try self.emitU16(0);
+                            try self.emitLocalPut(arguments);
+                        }
+                    }
+                    try self.expect(.right_paren);
+                    try self.emitLocalGet(receiver);
+                    try self.emitLocalGet(callee);
+                    try self.emitLocalGet(arguments);
+                    try self.emit(.call_method_spread);
+                    pending_method_call = false;
+                    pending_receiver_arguments = 0;
                 } else if ((std.mem.eql(u8, property, "call") or std.mem.eql(u8, property, "bind")) and self.current.kind == .left_paren) {
                     const is_bind = std.mem.eql(u8, property, "bind");
                     try self.advance();
@@ -3133,7 +3468,7 @@ fn isErrorConstructor(name: []const u8) bool {
 
 fn isUnavailableHostGlobal(name: []const u8) bool {
     const names = [_][]const u8{
-        "document", "window",           "self",    "navigator",  "Node",         "Element",               "Text",                 "HTMLElement", "SVGElement",
+        "document", "window",           "self",    "navigator",  "localStorage", "sessionStorage",       "Node",                 "Element",     "Text", "HTMLElement", "SVGElement",
         "Event",    "MutationObserver", "Promise", "setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame",
     };
     for (names) |candidate| if (std.mem.eql(u8, name, candidate)) return true;
@@ -3142,7 +3477,8 @@ fn isUnavailableHostGlobal(name: []const u8) bool {
 
 fn builtinFunction(namespace: []const u8, method: []const u8) ?usize {
     if (std.mem.eql(u8, namespace, "Array") and std.mem.eql(u8, method, "isArray")) return 2;
-    if (std.mem.eql(u8, namespace, "Object")) {
+    if (std.mem.eql(u8, namespace, "Array") and std.mem.eql(u8, method, "from")) return 64;
+        if (std.mem.eql(u8, namespace, "Object")) {
         if (std.mem.eql(u8, method, "create")) return 53;
         if (std.mem.eql(u8, method, "defineProperty")) return 54;
         if (std.mem.eql(u8, method, "getOwnPropertyDescriptor")) return 55;
@@ -3151,6 +3487,8 @@ fn builtinFunction(namespace: []const u8, method: []const u8) ?usize {
         if (std.mem.eql(u8, method, "fromEntries")) return 5;
         if (std.mem.eql(u8, method, "keys")) return 6;
         if (std.mem.eql(u8, method, "values")) return 7;
+        if (std.mem.eql(u8, method, "getPrototypeOf")) return 57;
+        if (std.mem.eql(u8, method, "getOwnPropertyNames")) return 58;
     }
     if (std.mem.eql(u8, namespace, "JSON")) {
         if (std.mem.eql(u8, method, "parse")) return 8;
@@ -3158,6 +3496,10 @@ fn builtinFunction(namespace: []const u8, method: []const u8) ?usize {
     }
     if (std.mem.eql(u8, namespace, "Math") and std.mem.eql(u8, method, "imul")) return 10;
     if (std.mem.eql(u8, namespace, "Math") and std.mem.eql(u8, method, "random")) return 46;
+    if (std.mem.eql(u8, namespace, "Math") and std.mem.eql(u8, method, "round")) return 62;
+    if (std.mem.eql(u8, namespace, "Math") and std.mem.eql(u8, method, "pow")) return 63;
+    if (std.mem.eql(u8, namespace, "Math") and std.mem.eql(u8, method, "max")) return 65;
+    if (std.mem.eql(u8, namespace, "Math") and std.mem.eql(u8, method, "min")) return 66;
     return null;
 }
 

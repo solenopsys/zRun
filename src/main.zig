@@ -68,6 +68,7 @@ pub fn main(init: std.process.Init) !void {
     var objects = ObjectStore.init(allocator);
     defer objects.deinit();
     const global_this = try objects.createObject();
+    try builtin_plugin.installObjectGlobal(&objects, global_this);
     const native_functions = [_]VM.NativeFunction{
         writePrint,
         array_plugin.push,
@@ -126,6 +127,16 @@ pub fn main(init: std.process.Init) !void {
         builtin_plugin.objectDefineProperty,
         builtin_plugin.objectGetOwnPropertyDescriptor,
         builtin_plugin.objectConstructor,
+        builtin_plugin.objectGetPrototypeOf,
+        builtin_plugin.objectGetOwnPropertyNames,
+        builtin_plugin.objectHasOwnProperty,
+        builtin_plugin.arrayConstructor,
+        builtin_plugin.parseInt,
+        builtin_plugin.mathRound,
+        builtin_plugin.mathPow,
+        builtin_plugin.arrayFrom,
+        builtin_plugin.mathMax,
+        builtin_plugin.mathMin,
     };
     const native_methods = arrayNativeMethods();
     const vm = VM{
@@ -239,10 +250,21 @@ fn runBytecodeBytes(allocator: std.mem.Allocator, bytes: []u8, output: *std.Io.W
         builtin_plugin.objectDefineProperty,
         builtin_plugin.objectGetOwnPropertyDescriptor,
         builtin_plugin.objectConstructor,
+        builtin_plugin.objectGetPrototypeOf,
+        builtin_plugin.objectGetOwnPropertyNames,
+        builtin_plugin.objectHasOwnProperty,
+        builtin_plugin.arrayConstructor,
+        builtin_plugin.parseInt,
+        builtin_plugin.mathRound,
+        builtin_plugin.mathPow,
+        builtin_plugin.arrayFrom,
+        builtin_plugin.mathMax,
+        builtin_plugin.mathMin,
     };
     const native_methods = arrayNativeMethods();
     var print_context = PrintContext{ .program = null, .output = output, .host_json = host_json };
     const global_this = try objects.createObject();
+    try builtin_plugin.installObjectGlobal(&objects, global_this);
     const vm = VM{
         .allocator = allocator,
         .objects = &objects,

@@ -26,6 +26,79 @@ pub fn toNumber(context: *VM.NativeCallContext, arguments: []const Value) anyerr
     return Value.fromFloat64(number);
 }
 
+pub fn parseInt(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0) return Value.fromFloat64(std.math.nan(f64));
+    const string_value = try toString(context, arguments[0..1]);
+    const input = context.objects.findString(string_value) orelse return Value.fromFloat64(std.math.nan(f64));
+    var text = std.mem.trim(u8, input, " \t\r\n\x0b\x0c");
+    var negative = false;
+    if (text.len > 0 and (text[0] == '+' or text[0] == '-')) {
+        negative = text[0] == '-';
+        text = text[1..];
+    }
+    var radix: u8 = 0;
+    if (arguments.len > 1) {
+        const radix_number = try toNumber(context, arguments[1..2]);
+        if (radix_number.asInt()) |number| {
+            if (number != 0) {
+                if (number < 2 or number > 36) return Value.fromFloat64(std.math.nan(f64));
+                radix = @intCast(number);
+            }
+        } else if (radix_number.asFloat64()) |number| {
+            if (number != 0) {
+                if (!std.math.isFinite(number) or number < 2 or number > 36) return Value.fromFloat64(std.math.nan(f64));
+                radix = @intFromFloat(number);
+            }
+        }
+    }
+    if ((radix == 0 or radix == 16) and text.len >= 2 and text[0] == '0' and (text[1] == 'x' or text[1] == 'X')) {
+        text = text[2..];
+        radix = 16;
+    }
+    if (radix == 0) radix = 10;
+    var parsed = false;
+    var result: f64 = 0;
+    for (text) |byte| {
+        const digit: u8 = if (byte >= '0' and byte <= '9')
+            byte - '0'
+        else if (byte >= 'a' and byte <= 'z')
+            byte - 'a' + 10
+        else if (byte >= 'A' and byte <= 'Z')
+            byte - 'A' + 10
+        else
+            break;
+        if (digit >= radix) break;
+        parsed = true;
+        result = result * @as(f64, @floatFromInt(radix)) + @as(f64, @floatFromInt(digit));
+    }
+    if (!parsed) return Value.fromFloat64(std.math.nan(f64));
+    if (negative) result = -result;
+    const minimum = @as(f64, @floatFromInt(Value.short_int_min));
+    const maximum = @as(f64, @floatFromInt(Value.short_int_max));
+    if (result >= minimum and result <= maximum) return Value.fromInt(@intFromFloat(result)).?;
+    return Value.fromFloat64(result);
+}
+
+pub fn mathRound(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0) return Value.fromInt(0).?;
+    const value = try toNumber(context, arguments[0..1]);
+    const number: f64 = if (value.asInt()) |integer| @floatFromInt(integer) else value.asFloat64() orelse return Value.fromFloat64(std.math.nan(f64));
+    const rounded = @floor(number + 0.5);
+    if (rounded >= @as(f64, @floatFromInt(Value.short_int_min)) and rounded <= @as(f64, @floatFromInt(Value.short_int_max))) {
+        return Value.fromInt(@intFromFloat(rounded)).?;
+    }
+    return Value.fromFloat64(rounded);
+}
+
+pub fn mathPow(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len < 2) return Value.fromFloat64(std.math.nan(f64));
+    const base_value = try toNumber(context, arguments[0..1]);
+    const exponent_value = try toNumber(context, arguments[1..2]);
+    const base: f64 = if (base_value.asInt()) |integer| @floatFromInt(integer) else base_value.asFloat64() orelse std.math.nan(f64);
+    const exponent: f64 = if (exponent_value.asInt()) |integer| @floatFromInt(integer) else exponent_value.asFloat64() orelse std.math.nan(f64);
+    return Value.fromFloat64(std.math.pow(f64, base, exponent));
+}
+
 pub fn encodeURIComponent(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
     const value = try toString(context, arguments);
     const text = context.objects.findString(value) orelse return error.InvalidString;
@@ -46,6 +119,67 @@ pub fn encodeURIComponent(context: *VM.NativeCallContext, arguments: []const Val
 
 pub fn arrayIsArray(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
     return Value.boolean(arguments.len != 0 and context.objects.findArray(arguments[0]) != null);
+}
+
+pub fn arrayConstructor(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 1) {
+        const length_value = arguments[0];
+        const requested_length = if (length_value.asInt()) |value|
+            if (value >= 0) @as(?usize, @intCast(value)) else null
+        else if (length_value.asFloat64()) |value|
+            if (std.math.isFinite(value) and value >= 0 and @trunc(value) == value and value <= 1_000_000)
+                @as(?usize, @intFromFloat(value))
+            else
+                null
+        else
+            null;
+        if (length_value.asInt() != null or length_value.asFloat64() != null) {
+            const length = requested_length orelse return error.InvalidArrayLength;
+            const values = try context.objects.allocator.alloc(Value, length);
+            defer context.objects.allocator.free(values);
+            @memset(values, Value.undefined_value);
+            return context.objects.createArray(values);
+        }
+    }
+    return context.objects.createArray(arguments);
+}
+
+pub fn arrayFrom(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0) return context.objects.createArray(&.{});
+    if (context.objects.findArray(arguments[0])) |array| return context.objects.createArray(array.items.items);
+    if (context.objects.findString(arguments[0])) |string| {
+        var items: std.ArrayList(Value) = .empty;
+        defer items.deinit(context.objects.allocator);
+        for (string) |byte| {
+            const char = try context.objects.createString(&.{byte});
+            try items.append(context.objects.allocator, char);
+        }
+        return context.objects.createArray(items.items);
+    }
+    return context.objects.createArray(&.{});
+}
+
+fn mathMinMax(context: *VM.NativeCallContext, arguments: []const Value, want_max: bool) anyerror!Value {
+    if (arguments.len == 0) return Value.fromFloat64(if (want_max) -std.math.inf(f64) else std.math.inf(f64));
+    var result: f64 = if (want_max) -std.math.inf(f64) else std.math.inf(f64);
+    for (arguments) |argument| {
+        const value = try toNumber(context, &.{argument});
+        const number: f64 = if (value.asInt()) |integer| @floatFromInt(integer) else value.asFloat64() orelse std.math.nan(f64);
+        if (std.math.isNan(number)) return Value.fromFloat64(number);
+        result = if (want_max) @max(result, number) else @min(result, number);
+    }
+    if (result >= @as(f64, @floatFromInt(Value.short_int_min)) and result <= @as(f64, @floatFromInt(Value.short_int_max)) and @trunc(result) == result) {
+        return Value.fromInt(@intFromFloat(result)).?;
+    }
+    return Value.fromFloat64(result);
+}
+
+pub fn mathMax(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    return mathMinMax(context, arguments, true);
+}
+
+pub fn mathMin(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    return mathMinMax(context, arguments, false);
 }
 
 pub fn objectCreate(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
@@ -96,6 +230,62 @@ pub fn objectConstructor(context: *VM.NativeCallContext, arguments: []const Valu
         return boxed;
     }
     return context.objects.createObject();
+}
+
+pub fn objectGetPrototypeOf(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0 or arguments[0].isNull() or arguments[0].isUndefined()) {
+        return error.InvalidTarget;
+    }
+    if (context.objects.findObject(arguments[0])) |object| {
+        return if (object.prototype.isUndefined()) Value.null_value else object.prototype;
+    }
+    if (context.objects.findArray(arguments[0]) != null or
+        context.objects.findString(arguments[0]) != null or
+        context.objects.findClosure(arguments[0]) != null or
+        context.objects.findCollection(arguments[0]) != null)
+    {
+        return context.objects.default_object_prototype;
+    }
+    return context.objects.default_object_prototype;
+}
+
+/// The runtime does not model non-enumerable or symbol properties yet, so its
+/// own string property list is also the currently supported own-name list.
+pub fn objectGetOwnPropertyNames(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    return objectKeys(context, arguments);
+}
+
+pub fn objectHasOwnProperty(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len < 2) return Value.false_value;
+    const key_value = try toString(context, arguments[1..2]);
+    const key = context.objects.findString(key_value) orelse return error.InvalidPropertyKey;
+    return Value.boolean(context.objects.getOwnProperty(arguments[0], key) != null);
+}
+
+/// Installs the Object namespace and the shared ordinary-object prototype in
+/// each VM global. Object calls remain specially lowered by the compiler;
+/// storing the namespace also supports `globalThis.Object` and `.prototype`.
+pub fn installObjectGlobal(objects: *@import("../vm/objects.zig").Store, global_this: Value) !void {
+    const object_prototype = try objects.createObject();
+    objects.findObject(object_prototype).?.prototype = Value.null_value;
+    objects.default_object_prototype = object_prototype;
+    if (objects.findObject(global_this)) |global| global.prototype = object_prototype;
+
+    const object_namespace = try objects.createObject();
+    objects.findObject(object_namespace).?.prototype = object_prototype;
+    try objects.putProperty(object_prototype, "hasOwnProperty", Value.shortFunction(59));
+    try objects.putProperty(object_namespace, "prototype", object_prototype);
+    try objects.putProperty(object_namespace, "create", Value.shortFunction(53));
+    try objects.putProperty(object_namespace, "defineProperty", Value.shortFunction(54));
+    try objects.putProperty(object_namespace, "getOwnPropertyDescriptor", Value.shortFunction(55));
+    try objects.putProperty(object_namespace, "getPrototypeOf", Value.shortFunction(57));
+    try objects.putProperty(object_namespace, "getOwnPropertyNames", Value.shortFunction(58));
+    try objects.putProperty(object_namespace, "assign", Value.shortFunction(3));
+    try objects.putProperty(object_namespace, "entries", Value.shortFunction(4));
+    try objects.putProperty(object_namespace, "fromEntries", Value.shortFunction(5));
+    try objects.putProperty(object_namespace, "keys", Value.shortFunction(6));
+    try objects.putProperty(object_namespace, "values", Value.shortFunction(7));
+    try objects.putProperty(global_this, "Object", object_namespace);
 }
 
 pub fn toBoolean(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {

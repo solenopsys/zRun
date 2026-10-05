@@ -83,6 +83,16 @@ const native_function_list = [_]VM.NativeFunction{
     builtin_plugin.objectDefineProperty,
     builtin_plugin.objectGetOwnPropertyDescriptor,
     builtin_plugin.objectConstructor,
+    builtin_plugin.objectGetPrototypeOf,
+    builtin_plugin.objectGetOwnPropertyNames,
+    builtin_plugin.objectHasOwnProperty,
+    builtin_plugin.arrayConstructor,
+    builtin_plugin.parseInt,
+    builtin_plugin.mathRound,
+    builtin_plugin.mathPow,
+    builtin_plugin.arrayFrom,
+    builtin_plugin.mathMax,
+    builtin_plugin.mathMin,
 };
 
 pub const HostPluginCall = *const fn (?*anyopaque, std.mem.Allocator, []const u8) anyerror![]const u8;
@@ -156,6 +166,7 @@ pub fn executeWithOptions(
         .plugin_wait = options.plugin_wait,
     };
     const global_this = try objects.createObject();
+    try builtin_plugin.installObjectGlobal(&objects, global_this);
     const native_methods = arrayNativeMethods();
     const vm = VM{
         .allocator = allocator,
@@ -236,6 +247,7 @@ pub const AsyncSession = struct {
             .plugin_wait = options.plugin_wait,
         };
         const global_this = try self.objects.createObject();
+        try builtin_plugin.installObjectGlobal(&self.objects, global_this);
         self.vm = .{
             .allocator = self.request_arena.allocator(),
             .objects = &self.objects,
@@ -277,6 +289,7 @@ pub const AsyncSession = struct {
             _ = self.request_arena.reset(.{ .retain_with_limit = max_request_arena_capacity });
             self.objects = ObjectStore.init(self.request_arena.allocator());
             self.vm.global_this = try self.objects.createObject();
+            try builtin_plugin.installObjectGlobal(&self.objects, self.vm.global_this);
         }
         self.output.writer.end = 0;
         self.error_output.writer.end = 0;

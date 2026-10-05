@@ -478,11 +478,11 @@ pub const VM = struct {
             if (comptime pump_each_instruction) {
                 self.event_pump.?(self.event_context orelse return error.NativeFunctionFailed, &self, objects) catch return error.NativeFunctionFailed;
             }
-            if (builtin.mode != .ReleaseFast and pc >= function.code.len) return error.MissingReturn;
+            if (builtin.mode != .fast and pc >= function.code.len) return error.MissingReturn;
             const opcode_byte = function.code[pc];
             pc += 1;
             if (collect_stats) stats.?.opcode_counts[opcode_byte] += 1;
-            if (builtin.mode != .ReleaseFast and opcode_byte >= @as(u8, @intCast(opcode_count))) return error.InvalidOpcode;
+            if (builtin.mode != .fast and opcode_byte >= @as(u8, @intCast(opcode_count))) return error.InvalidOpcode;
             const opcode: Opcode = @enumFromInt(opcode_byte);
             last_opcode = opcode;
 
@@ -781,7 +781,7 @@ pub const VM = struct {
                 .push_global_this => try self.push(&stack, function.max_stack, self.global_this),
                 .get_loc, .put_loc => {
                     const index = try readU16(function.code, &pc);
-                    if (builtin.mode != .ReleaseFast and index >= locals.len) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and index >= locals.len) return error.BadLocalIndex;
                     if (opcode == .get_loc) {
                         try self.push(&stack, function.max_stack, locals[index].load());
                     } else {
@@ -790,7 +790,7 @@ pub const VM = struct {
                 },
                 .get_loc8, .put_loc8 => {
                     const index = try readByte(function.code, &pc);
-                    if (builtin.mode != .ReleaseFast and index >= locals.len) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and index >= locals.len) return error.BadLocalIndex;
                     if (opcode == .get_loc8) {
                         try self.push(&stack, function.max_stack, locals[index].load());
                     } else {
@@ -799,7 +799,7 @@ pub const VM = struct {
                 },
                 .get_arg, .put_arg => {
                     const index = try readU16(function.code, &pc);
-                    if (builtin.mode != .ReleaseFast and index >= arguments.len) return error.BadArgumentIndex;
+                    if (builtin.mode != .fast and index >= arguments.len) return error.BadArgumentIndex;
                     if (opcode == .get_arg) {
                         try self.push(&stack, function.max_stack, arguments[index].load());
                     } else {
@@ -815,14 +815,14 @@ pub const VM = struct {
                 },
                 .get_var_ref, .get_var_ref_nocheck => {
                     const index = try readU16(function.code, &pc);
-                    if (builtin.mode != .ReleaseFast and index >= captured_cells.len) return error.BadGlobalIndex;
+                    if (builtin.mode != .fast and index >= captured_cells.len) return error.BadGlobalIndex;
                     const value = captured_cells[index].value;
                     if (value.isUninitialized() and opcode == .get_var_ref) return error.UnknownGlobal;
                     try self.push(&stack, function.max_stack, value);
                 },
                 .put_var_ref, .put_var_ref_nocheck => {
                     const index = try readU16(function.code, &pc);
-                    if (builtin.mode != .ReleaseFast and index >= captured_cells.len) return error.BadGlobalIndex;
+                    if (builtin.mode != .fast and index >= captured_cells.len) return error.BadGlobalIndex;
                     const cell = captured_cells[index];
                     if (cell.value.isUninitialized() and opcode == .put_var_ref) return error.UnknownGlobal;
                     cell.value = try self.pop(&stack);
@@ -951,7 +951,7 @@ pub const VM = struct {
                 },
                 .add_loc, .sub_loc => {
                     const index = try readU16(function.code, &pc);
-                    if (builtin.mode != .ReleaseFast and index >= locals.len) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and index >= locals.len) return error.BadLocalIndex;
                     const right = try self.pop(&stack);
                     const left = locals[index].load();
                     const result = if (opcode == .add_loc) add_result: {
@@ -1007,7 +1007,7 @@ pub const VM = struct {
                     const argument_count_for_call: usize = call_flags & 0xffff;
                     const method_call = opcode == .call_method;
                     const prefix: usize = if (method_call) 2 else 1;
-                    if (builtin.mode != .ReleaseFast and stack.len < argument_count_for_call + prefix) return error.StackUnderflow;
+                    if (builtin.mode != .fast and stack.len < argument_count_for_call + prefix) return error.StackUnderflow;
                     const callee_position = stack.len - argument_count_for_call - prefix;
                     const callee_index = callee_position + @intFromBool(method_call);
                     const this_value = if (method_call) stack.storage[callee_position] else Value.undefined_value;
@@ -1257,67 +1257,67 @@ pub const VM = struct {
                     try self.push(&stack, function.max_stack, result);
                 },
                 .get_loc0 => {
-                    if (builtin.mode != .ReleaseFast and locals.len <= 0) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and locals.len <= 0) return error.BadLocalIndex;
                     try self.push(&stack, function.max_stack, locals[0].load());
                 },
                 .get_loc1 => {
-                    if (builtin.mode != .ReleaseFast and locals.len <= 1) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and locals.len <= 1) return error.BadLocalIndex;
                     try self.push(&stack, function.max_stack, locals[1].load());
                 },
                 .get_loc2 => {
-                    if (builtin.mode != .ReleaseFast and locals.len <= 2) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and locals.len <= 2) return error.BadLocalIndex;
                     try self.push(&stack, function.max_stack, locals[2].load());
                 },
                 .get_loc3 => {
-                    if (builtin.mode != .ReleaseFast and locals.len <= 3) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and locals.len <= 3) return error.BadLocalIndex;
                     try self.push(&stack, function.max_stack, locals[3].load());
                 },
                 .put_loc0 => {
-                    if (builtin.mode != .ReleaseFast and locals.len <= 0) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and locals.len <= 0) return error.BadLocalIndex;
                     locals[0].store(try self.pop(&stack));
                 },
                 .put_loc1 => {
-                    if (builtin.mode != .ReleaseFast and locals.len <= 1) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and locals.len <= 1) return error.BadLocalIndex;
                     locals[1].store(try self.pop(&stack));
                 },
                 .put_loc2 => {
-                    if (builtin.mode != .ReleaseFast and locals.len <= 2) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and locals.len <= 2) return error.BadLocalIndex;
                     locals[2].store(try self.pop(&stack));
                 },
                 .put_loc3 => {
-                    if (builtin.mode != .ReleaseFast and locals.len <= 3) return error.BadLocalIndex;
+                    if (builtin.mode != .fast and locals.len <= 3) return error.BadLocalIndex;
                     locals[3].store(try self.pop(&stack));
                 },
                 .get_arg0 => {
-                    if (builtin.mode != .ReleaseFast and arguments.len <= 0) return error.BadArgumentIndex;
+                    if (builtin.mode != .fast and arguments.len <= 0) return error.BadArgumentIndex;
                     try self.push(&stack, function.max_stack, arguments[0].load());
                 },
                 .get_arg1 => {
-                    if (builtin.mode != .ReleaseFast and arguments.len <= 1) return error.BadArgumentIndex;
+                    if (builtin.mode != .fast and arguments.len <= 1) return error.BadArgumentIndex;
                     try self.push(&stack, function.max_stack, arguments[1].load());
                 },
                 .get_arg2 => {
-                    if (builtin.mode != .ReleaseFast and arguments.len <= 2) return error.BadArgumentIndex;
+                    if (builtin.mode != .fast and arguments.len <= 2) return error.BadArgumentIndex;
                     try self.push(&stack, function.max_stack, arguments[2].load());
                 },
                 .get_arg3 => {
-                    if (builtin.mode != .ReleaseFast and arguments.len <= 3) return error.BadArgumentIndex;
+                    if (builtin.mode != .fast and arguments.len <= 3) return error.BadArgumentIndex;
                     try self.push(&stack, function.max_stack, arguments[3].load());
                 },
                 .put_arg0 => {
-                    if (builtin.mode != .ReleaseFast and arguments.len <= 0) return error.BadArgumentIndex;
+                    if (builtin.mode != .fast and arguments.len <= 0) return error.BadArgumentIndex;
                     arguments[0].store(try self.pop(&stack));
                 },
                 .put_arg1 => {
-                    if (builtin.mode != .ReleaseFast and arguments.len <= 1) return error.BadArgumentIndex;
+                    if (builtin.mode != .fast and arguments.len <= 1) return error.BadArgumentIndex;
                     arguments[1].store(try self.pop(&stack));
                 },
                 .put_arg2 => {
-                    if (builtin.mode != .ReleaseFast and arguments.len <= 2) return error.BadArgumentIndex;
+                    if (builtin.mode != .fast and arguments.len <= 2) return error.BadArgumentIndex;
                     arguments[2].store(try self.pop(&stack));
                 },
                 .put_arg3 => {
-                    if (builtin.mode != .ReleaseFast and arguments.len <= 3) return error.BadArgumentIndex;
+                    if (builtin.mode != .fast and arguments.len <= 3) return error.BadArgumentIndex;
                     arguments[3].store(try self.pop(&stack));
                 },
                 .return_value, .return_undef => {
@@ -1394,7 +1394,7 @@ pub const VM = struct {
 
     inline fn push(self: VM, stack: *ExecutionStack, max_stack: usize, value: Value) Error!void {
         _ = self;
-        if (builtin.mode == .ReleaseFast) {
+        if (builtin.mode == .fast) {
             stack.storage[stack.len] = value;
             stack.len += 1;
             return;
@@ -1572,7 +1572,7 @@ pub const VM = struct {
 
     inline fn pop(self: VM, stack: *ExecutionStack) Error!Value {
         _ = self;
-        if (builtin.mode == .ReleaseFast) {
+        if (builtin.mode == .fast) {
             stack.len -= 1;
             return stack.storage[stack.len];
         }
@@ -1581,7 +1581,7 @@ pub const VM = struct {
 
     inline fn peek(self: VM, stack: *const ExecutionStack, depth: usize) Error!Value {
         _ = self;
-        if (builtin.mode == .ReleaseFast) return stack.storage[stack.len - depth - 1];
+        if (builtin.mode == .fast) return stack.storage[stack.len - depth - 1];
         return stack.peek(depth);
     }
 
@@ -2050,7 +2050,7 @@ test "truthiness handles immediate values and strings" {
 }
 
 fn branchTarget(code_len: usize, operand_pc: usize, relative: i32) VM.Error!usize {
-    if (builtin.mode == .ReleaseFast) {
+    if (builtin.mode == .fast) {
         return if (relative < 0)
             operand_pc - @as(usize, @intCast(-@as(i64, relative)))
         else
@@ -2063,21 +2063,21 @@ fn branchTarget(code_len: usize, operand_pc: usize, relative: i32) VM.Error!usiz
 }
 
 fn readByte(code: []const u8, pc: *usize) VM.Error!u8 {
-    if (builtin.mode != .ReleaseFast and pc.* >= code.len) return error.TruncatedBytecode;
+    if (builtin.mode != .fast and pc.* >= code.len) return error.TruncatedBytecode;
     const byte = code[pc.*];
     pc.* += 1;
     return byte;
 }
 
 fn readU16(code: []const u8, pc: *usize) VM.Error!u16 {
-    if (builtin.mode != .ReleaseFast and code.len -| pc.* < 2) return error.TruncatedBytecode;
+    if (builtin.mode != .fast and code.len -| pc.* < 2) return error.TruncatedBytecode;
     const value = std.mem.readInt(u16, code[pc.*..][0..2], .little);
     pc.* += 2;
     return value;
 }
 
 fn readU32(code: []const u8, pc: *usize) VM.Error!u32 {
-    if (builtin.mode != .ReleaseFast and code.len -| pc.* < 4) return error.TruncatedBytecode;
+    if (builtin.mode != .fast and code.len -| pc.* < 4) return error.TruncatedBytecode;
     const value = std.mem.readInt(u32, code[pc.*..][0..4], .little);
     pc.* += 4;
     return value;

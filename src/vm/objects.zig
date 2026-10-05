@@ -139,6 +139,7 @@ pub const Cell = struct { value: Value = Value.undefined_value };
 
 pub const Store = struct {
     allocator: std.mem.Allocator,
+    default_object_prototype: Value = Value.undefined_value,
     arrays: std.ArrayList(*ArrayObject) = .empty,
     array_index: std.AutoHashMapUnmanaged(usize, *ArrayObject) = .empty,
     array_cache: PointerCache(ArrayObject) = .{},
@@ -273,7 +274,7 @@ pub const Store = struct {
     pub fn createObjectWithCapacity(self: *Store, capacity: usize) !Value {
         const object = try self.allocator.create(ObjectObject);
         errdefer self.allocator.destroy(object);
-        object.* = .{};
+        object.* = .{ .prototype = self.default_object_prototype };
         object.init();
         errdefer object.fields.deinit(self.allocator);
         try object.fields.ensureTotalCapacity(self.allocator, capacity);

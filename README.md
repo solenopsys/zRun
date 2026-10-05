@@ -18,7 +18,8 @@ The tables below summarize implemented source-language constructs and runtime AP
 |---|---|
 | Values | &bull; `undefined`, `null`, booleans<br>&bull; Integer, hexadecimal, and BigInt literals; runtime floating-point values<br>&bull; Arbitrary-precision BigInt arithmetic<br>&bull; Strings and template interpolation |
 | Bindings | &bull; `var`, `let`, and `const`<br>&bull; Local assignment and closures<br>&bull; Captured mutable values |
-| Expressions | &bull; Arithmetic and loose/strict comparisons<br>&bull; Short-circuit `&&`/`\|\|`; ternary and nullish expressions<br>&bull; Increments and compound assignments<br>&bull; `typeof`, `in`, and `instanceof` |
+| Expressions | &bull; Arithmetic and loose/strict comparisons<br>&bull; Short-circuit `&&`/`\|\|`; ternary and nullish expressions<br>&bull; Increments and compound assignments<br>&bull; `typeof`, `void`, `in`, and `instanceof` |
+| Global object | &bull; `globalThis` property reads and writes, including computed properties<br>&bull; `globalThis.Object` and access to the installed `Object` namespace |
 | Bitwise operations | &bull; `&`, `\|`, and `^`<br>&bull; `<<`, `>>`, and unsigned right shift `>>>` |
 | Property access | &bull; Dot and computed reads/writes<br>&bull; Optional dot/computed access<br>&bull; Array and string `length` |
 | Strings | &bull; Quoted literals and escapes<br>&bull; Concatenation and `${...}` interpolation |
@@ -29,7 +30,7 @@ Coverage: [values and arithmetic](verification/01_basics/), [operators and optio
 
 | Area | Implemented features |
 |---|---|
-| Branching and loops | &bull; `if`/`else` and `switch`<br>&bull; `while`, `do`/`while`, and C-style `for`<br>&bull; Array `for`/`of` and object-key `for`/`in`<br>&bull; Labeled `break`/`continue` |
+| Branching and loops | &bull; `if`/`else` and `switch`<br>&bull; `while`, `do`/`while`, and C-style `for`<br>&bull; Array `for`/`of` and object-key `for`/`in`<br>&bull; Object binding patterns in `for`/`of` and `for`/`in`, including renamed bindings such as `for (const { id: key } of rows)`<br>&bull; Labeled `break`/`continue` |
 | Exceptions | &bull; `throw` and `try`/`catch`<br>&bull; Synchronous `finally`<br>&bull; Propagation through function calls |
 
 Coverage: [language control flow](verification/02_language/loops.js), [runtime control flow](verification/03_runtime/).
@@ -45,6 +46,7 @@ Coverage: [language control flow](verification/02_language/loops.js), [runtime c
 | Object methods | &bull; Concise method syntax<br>&bull; Closure capture and method receiver behavior |
 | Classes | &bull; Class declarations and constructors<br>&bull; `Error` subclasses |
 | Function invocation | &bull; `.call()`<br>&bull; `.bind()` |
+| Optional calls | &bull; `callback?.(value)`; arguments are skipped when the callee is `null` or `undefined` |
 
 Coverage: [function syntax](verification/02_language/functions.js), [closures and call behavior](verification/03_runtime/functions.js), [class syntax](verification/02_language/class.js).
 
@@ -102,6 +104,7 @@ Coverage: [arrays and objects](verification/02_language/arrays.js), [collections
 | String methods | &bull; `concat`, `indexOf`, `startsWith`, `slice`, and `split`<br>&bull; `replace` and `replaceAll`<br>&bull; `charCodeAt`, `localeCompare`, and `padStart`<br>&bull; `toLowerCase`, `toUpperCase`, and `trim` |
 | `Number` | &bull; `toString` |
 | `Object` | &bull; `assign`, `entries`, and `fromEntries`<br>&bull; `keys` and `values` |
+| `Object` properties | &bull; `create`, `defineProperty`, and `getOwnPropertyDescriptor`<br>&bull; `getPrototypeOf`, `getOwnPropertyNames`, and `hasOwnProperty`<br>&bull; Shared ordinary-object prototype exposed as `Object.prototype` |
 | `Array` | &bull; `isArray` |
 | `JSON` | &bull; `parse` and `stringify` |
 | `Math` | &bull; `imul` and `random` |
@@ -109,6 +112,9 @@ Coverage: [arrays and objects](verification/02_language/arrays.js), [collections
 | Host integration | &bull; `print`<br>&bull; The `__host` bridge and `--host-json` input |
 
 Coverage: [runtime APIs](verification/02_language/apis.js), [host primitives](verification/02_language/host_runtime_primitives.js).
+
+`Object.defineProperty` currently supports the runtime's own string properties;
+property descriptors do not yet model non-enumerable or symbol properties.
 
 ### Bytecode runtime
 

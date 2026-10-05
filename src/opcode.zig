@@ -147,7 +147,7 @@ pub const Opcode = enum(u8) {
     to_bigint,
 };
 
-pub const count = @typeInfo(Opcode).@"enum".fields.len;
+pub const count = @typeInfo(Opcode).@"enum".field_names.len;
 
 test "opcode numbers preserve upstream order and compact opcode groups" {
     try std.testing.expectEqual(@as(u8, 0), @intFromEnum(Opcode.invalid));

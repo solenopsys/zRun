@@ -1,0 +1,19 @@
+Same upstream-compiled bytecode; ReleaseFast process startup and image loading included.
+Samples: 21 per engine, 3 warmups; values are median wall time.
+
+| Workload | mqjs ms | zrun ms | mqjs/zrun |
+|---|---:|---:|---:|
+| arithmetic | 13.951 | 18.980 | 0.73x |
+| arrays | 1.149 | 1.134 | 1.01x |
+| calls | 3.989 | 5.376 | 0.74x |
+| ssr | 0.864 | 1.482 | 0.58x |
+
+| Executable | File bytes |
+|---|---:|
+| mqjs (-Os, debug sections stripped) | 240,232 |
+| zrun (ReleaseSmall, debug sections stripped) | 984,376 |
+| zrun (ReleaseFast, debug sections stripped) | 2,198,480 |
+| ReleaseFast before stripping | 13,443,928 |
+| ReleaseSmall before stripping | 984,376 |
+
+Timing ratio above 1.00x means zrun was faster for that workload.

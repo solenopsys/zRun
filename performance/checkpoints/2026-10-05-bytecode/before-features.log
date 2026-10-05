@@ -1,0 +1,32 @@
+PASS arrays.js: C/Zig 0.41x
+  MQuickJS: 11047747 ns; zRun ReleaseFast: 26632279 ns
+PASS collections.js: C/Zig 0.74x
+  MQuickJS: 29293344 ns; zRun ReleaseFast: 39330294 ns
+PASS concat_indexof_shift.js: C/Zig 0.46x
+  MQuickJS: 5335445 ns; zRun ReleaseFast: 11498774 ns
+PASS constructors_this.js: C/Zig 0.48x
+  MQuickJS: 2893892 ns; zRun ReleaseFast: 5979874 ns
+PASS control.js: C/Zig 0.85x
+  MQuickJS: 1988302 ns; zRun ReleaseFast: 2352305 ns
+PASS functions.js: C/Zig 0.62x
+  MQuickJS: 4018712 ns; zRun ReleaseFast: 6530528 ns
+PASS json.js: C/Zig 1.14x
+  MQuickJS: 19536230 ns; zRun ReleaseFast: 17065361 ns
+PASS lowered_optional.js: C/Zig 0.82x
+  MQuickJS: 11389158 ns; zRun ReleaseFast: 13845589 ns
+PASS lowered_spread.js: C/Zig 0.33x
+  MQuickJS: 8403243 ns; zRun ReleaseFast: 25463375 ns
+PASS numeric_operators.js: C/Zig 0.82x
+  MQuickJS: 10022943 ns; zRun ReleaseFast: 12231358 ns
+PASS object_methods.js: C/Zig 0.19x
+  MQuickJS: 6995880 ns; zRun ReleaseFast: 36780787 ns
+PASS objects.js: C/Zig 0.43x
+  MQuickJS: 9078801 ns; zRun ReleaseFast: 21171348 ns
+PASS regexp.js: C/Zig 0.95x
+  MQuickJS: 4731481 ns; zRun ReleaseFast: 4980730 ns
+PASS ssr_templates.js: C/Zig 0.19x
+  MQuickJS: 6650063 ns; zRun ReleaseFast: 35585194 ns
+PASS strings.js: C/Zig 0.78x
+  MQuickJS: 56627760 ns; zRun ReleaseFast: 72604178 ns
+Language feature workloads: 15 measured, 0 blocked
+Timings include process startup, source compilation, and execution.

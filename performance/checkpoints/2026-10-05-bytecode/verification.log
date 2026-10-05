@@ -1,0 +1,86 @@
+test
++- run test w
+VM failure in  at pc=4, opcode=call, stack=1, code=5
+VM failure in  at pc=5, opcode=call, stack=1, code=6
+compile error UnexpectedToken at byte 8 near `await 40; `
+failed function body load:  return await 40; 
+compile error UnexpectedToken at byte 37 near `load();`
+failed command: ./.zig-cache/o/1b5d5af3eb390abf8851f7a52867450b/test --cache-dir=./.zig-cache --seed=0x4edf708e --listen=-
+
+PASS verification/01_basics/arithmetic.js
+PASS verification/01_basics/values.js
+PASS verification/02_language/apis.js
+PASS verification/02_language/array_destructuring.js
+PASS verification/02_language/array_methods.js
+PASS verification/02_language/array_spread.js
+PASS verification/02_language/arrays.js
+PASS verification/02_language/arrow.js
+PASS verification/02_language/arrow_parameters.js
+PASS verification/02_language/bigint.js
+PASS verification/02_language/call_spread.js
+PASS verification/02_language/class.js
+PASS verification/02_language/collections.js
+PASS verification/02_language/computed_access.js
+PASS verification/02_language/computed_method.js
+PASS verification/02_language/construct.js
+PASS verification/02_language/exceptions.js
+PASS verification/02_language/function_methods.js
+PASS verification/02_language/functions.js
+PASS verification/02_language/global_property_assignment.js
+PASS verification/02_language/host_runtime_primitives.js
+PASS verification/02_language/iterable_collections.js
+PASS verification/02_language/loops.js
+PASS verification/02_language/nullish.js
+PASS verification/02_language/nullish_assignment.js
+PASS verification/02_language/number_formatting.js
+PASS verification/02_language/object_methods.js
+PASS verification/02_language/object_rest_lowered.js
+PASS verification/02_language/object_shorthand.js
+PASS verification/02_language/object_spread.js
+PASS verification/02_language/objects.js
+PASS verification/02_language/operators.js
+PASS verification/02_language/optional_access.js
+PASS verification/02_language/optional_computed_access.js
+PASS verification/02_language/optional_nullish_receiver.js
+PASS verification/02_language/regexp.js
+PASS verification/02_language/sha256.js
+PASS verification/02_language/string_methods.js
+PASS verification/02_language/switch.js
+PASS verification/02_language/template_interpolation.js
+PASS verification/02_language/template_literal.js
+PASS verification/02_language/this.js
+PASS verification/02_language/uri_encoding.js
+PASS verification/02_language/variables_branches.js
+PASS verification/02_language/xor_assignment.js
+PASS verification/03_runtime/arguments_object.js
+PASS verification/03_runtime/array_constructor.js
+PASS verification/03_runtime/array_length_assignment.js
+PASS verification/03_runtime/call_bind_this.js
+PASS verification/03_runtime/comma_operator.js
+PASS verification/03_runtime/compound_assignments.js
+PASS verification/03_runtime/conditional_computed_assignment.js
+PASS verification/03_runtime/conditional_local_assignment.js
+PASS verification/03_runtime/continue_through_switch.js
+PASS verification/03_runtime/control_flow.js
+PASS verification/03_runtime/do_while.js
+PASS verification/03_runtime/exceptions.js
+PASS verification/03_runtime/finally_sync.js
+PASS verification/03_runtime/for_multiple_declarations.js
+PASS verification/03_runtime/function_prototypes.js
+PASS verification/03_runtime/functions.js
+PASS verification/03_runtime/hoisted_local_capture.js
+PASS verification/03_runtime/labeled_break.js
+PASS verification/03_runtime/local_increment.js
+PASS verification/03_runtime/loose_equality.js
+PASS verification/03_runtime/math_random.js
+PASS verification/03_runtime/native_strings.js
+PASS verification/03_runtime/object_destructuring.js
+PASS verification/03_runtime/property_partition.js
+PASS verification/03_runtime/regex_slash_class.js
+PASS verification/03_runtime/reserved_object_keys.js
+PASS verification/03_runtime/runtime_array_string_methods.js
+PASS verification/03_runtime/ssr_string.js
+PASS verification/03_runtime/string_indexing.js
+PASS verification/03_runtime/unavailable_browser_globals.js
+PASS verification/04_bytecode/print.js
+PASS verification/04_bytecode/exception.js

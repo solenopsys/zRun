@@ -1,0 +1,31 @@
+{
+  "utc": "2026-10-05T14:56:08.737063+00:00",
+  "head": "00dc17b81e319f40431c7aaf7f9b483ae10f3143",
+  "zig": "0.17.0",
+  "platform": "Linux-7.2.7-arch1-1-x86_64-with-glibc2.44",
+  "cpu_affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "initial_status": " M src/execution.zig\n?? performance/checkpoints/\n",
+  "note": "Existing src/execution.zig change included in snapshot and retained.",
+  "reference": {
+    "path": "/home/alexstorm/distrib/business/rd/mquickjs/mqjs",
+    "head": "6d4d7eb6b99011d5aab6e88a9b99e8fd4d86c6e9",
+    "sha256": "05fd04090e4fe40f48cf2592389369cae70d80d193cfa755d1679d938a02d976"
+  }
+}

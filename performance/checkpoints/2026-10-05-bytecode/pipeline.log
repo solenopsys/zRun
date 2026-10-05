@@ -1,0 +1,73 @@
+Same JavaScript input; each engine compiles and executes its OWN artifact.
+Compile: source loading + compilation + serialization + process startup.
+Execute: artifact loading + execution + process startup; compilation excluded.
+Samples: 31; warmups: 5; builds excluded.
+
+| Workload | Engine | Compile ms | Execute ms | Artifact bytes |
+|---|---|---:|---:|---:|
+| cli/arithmetic.js | MQuickJS | 2.139 | 21.724 | 456 |
+| cli/arithmetic.js | zRun before | 1.562 | 23.845 | 87 |
+| cli/arithmetic.js | zRun after | 1.528 | 25.762 | 87 |
+| cli/arrays.js | MQuickJS | 1.468 | 2.190 | 512 |
+| cli/arrays.js | zRun before | 0.977 | 1.970 | 102 |
+| cli/arrays.js | zRun after | 1.024 | 1.958 | 102 |
+| cli/calls.js | MQuickJS | 1.704 | 7.294 | 688 |
+| cli/calls.js | zRun before | 1.278 | 11.573 | 138 |
+| cli/calls.js | zRun after | 1.311 | 12.670 | 138 |
+| cli/ssr.js | MQuickJS | 1.482 | 2.870 | 824 |
+| cli/ssr.js | zRun before | 1.094 | 3.355 | 205 |
+| cli/ssr.js | zRun after | 1.111 | 3.435 | 205 |
+| features/arrays.js | MQuickJS | 1.510 | 17.981 | 2912 |
+| features/arrays.js | zRun before | 1.124 | 39.893 | 775 |
+| features/arrays.js | zRun after | 1.063 | 40.157 | 775 |
+| features/collections.js | MQuickJS | 1.448 | 49.625 | 968 |
+| features/collections.js | zRun before | 0.958 | 60.581 | 271 |
+| features/collections.js | zRun after | 0.978 | 62.002 | 271 |
+| features/concat_indexof_shift.js | MQuickJS | 1.681 | 6.779 | 856 |
+| features/concat_indexof_shift.js | zRun before | 1.034 | 16.114 | 196 |
+| features/concat_indexof_shift.js | zRun after | 0.994 | 16.957 | 194 |
+| features/constructors_this.js | MQuickJS | 1.660 | 4.039 | 880 |
+| features/constructors_this.js | zRun before | 1.042 | 9.934 | 279 |
+| features/constructors_this.js | zRun after | 1.021 | 10.204 | 279 |
+| features/control.js | MQuickJS | 1.662 | 3.504 | 824 |
+| features/control.js | zRun before | 1.050 | 4.583 | 263 |
+| features/control.js | zRun after | 1.006 | 4.470 | 263 |
+| features/functions.js | MQuickJS | 1.566 | 6.420 | 960 |
+| features/functions.js | zRun before | 1.006 | 10.204 | 220 |
+| features/functions.js | zRun after | 0.978 | 10.344 | 220 |
+| features/json.js | MQuickJS | 1.755 | 28.982 | 960 |
+| features/json.js | zRun before | 1.096 | 27.511 | 253 |
+| features/json.js | zRun after | 1.021 | 27.295 | 253 |
+| features/lowered_optional.js | MQuickJS | 1.583 | 16.974 | 1024 |
+| features/lowered_optional.js | zRun before | 0.993 | 25.389 | 281 |
+| features/lowered_optional.js | zRun after | 0.961 | 25.758 | 281 |
+| features/lowered_spread.js | MQuickJS | 1.580 | 9.131 | 1192 |
+| features/lowered_spread.js | zRun before | 1.103 | 33.079 | 307 |
+| features/lowered_spread.js | zRun after | 1.020 | 32.782 | 307 |
+| features/numeric_operators.js | MQuickJS | 1.841 | 15.324 | 1008 |
+| features/numeric_operators.js | zRun before | 1.014 | 20.986 | 265 |
+| features/numeric_operators.js | zRun after | 1.045 | 19.418 | 265 |
+| features/object_methods.js | MQuickJS | 1.374 | 8.701 | 1144 |
+| features/object_methods.js | zRun before | 0.878 | 42.512 | 323 |
+| features/object_methods.js | zRun after | 0.842 | 42.104 | 323 |
+| features/objects.js | MQuickJS | 1.499 | 9.903 | 952 |
+| features/objects.js | zRun before | 0.907 | 28.417 | 256 |
+| features/objects.js | zRun after | 0.877 | 27.918 | 256 |
+| features/regexp.js | MQuickJS | 1.486 | 6.371 | 864 |
+| features/regexp.js | zRun before | 0.883 | 6.911 | 225 |
+| features/regexp.js | zRun after | 0.912 | 6.870 | 223 |
+| features/ssr_templates.js | MQuickJS | 1.431 | 8.684 | 1072 |
+| features/ssr_templates.js | zRun before | 0.936 | 35.666 | 279 |
+| features/ssr_templates.js | zRun after | 0.870 | 35.737 | 279 |
+| features/strings.js | MQuickJS | 1.487 | 75.420 | 1136 |
+| features/strings.js | zRun before | 0.958 | 88.378 | 387 |
+| features/strings.js | zRun after | 0.886 | 90.593 | 387 |
+| /home/alexstorm/distrib/business/next-arh/native/zRun/performance/checkpoints/2026-10-05-bytecode/local_updates.js | MQuickJS | 1.473 | 47.401 | 512 |
+| /home/alexstorm/distrib/business/next-arh/native/zRun/performance/checkpoints/2026-10-05-bytecode/local_updates.js | zRun before | 0.919 | 101.977 | 107 |
+| /home/alexstorm/distrib/business/next-arh/native/zRun/performance/checkpoints/2026-10-05-bytecode/local_updates.js | zRun after | 0.816 | 86.874 | 99 |
+
+Nonblank source lines (existing counter): zRun 10,622; MQuickJS 25,136.
+
+Before/after geometric mean speedup (equal weight per workload):
+compile: 1.029x
+execute: 0.998x

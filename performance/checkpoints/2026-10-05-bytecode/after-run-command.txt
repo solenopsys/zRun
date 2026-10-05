@@ -1,0 +1,1 @@
+taskset -c 0 python3 performance/scripts/run.py /home/alexstorm/distrib/business/rd/mquickjs/mqjs --runs 21 --warmups 3

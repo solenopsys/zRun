@@ -1,0 +1,24 @@
+diff --git a/src/compiler.zig b/src/compiler.zig
+index 71b2d7e..ffd56c1 100644
+--- a/src/compiler.zig
++++ b/src/compiler.zig
+@@ -1358,9 +1358,7 @@ const Parser = struct {
+             try self.advance();
+             try self.emitLocalGet(index);
+             try self.emit(.inc);
+-            try self.emit(.dup);
+             try self.emitLocalPut(index);
+-            try self.emit(.drop);
+             try self.expect(.semicolon);
+             return;
+         }
+@@ -1386,9 +1384,7 @@ const Parser = struct {
+                 .or_assign => .or_op,
+                 else => unreachable,
+             });
+-            try self.emit(.dup);
+             try self.emitLocalPut(index);
+-            try self.emit(.drop);
+             try self.expect(.semicolon);
+             return;
+         }

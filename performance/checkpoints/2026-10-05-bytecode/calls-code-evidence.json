@@ -1,0 +1,25 @@
+{
+  ".text": {
+    "sha256": {
+      "before": "94ea348a3ada5b0fc12609fa6182656590667e350e3b7aca6f9f5a9771ece070",
+      "after": "94ea348a3ada5b0fc12609fa6182656590667e350e3b7aca6f9f5a9771ece070"
+    },
+    "identical": true
+  },
+  ".rodata": {
+    "sha256": {
+      "before": "84b69bd5b6e46924e0a3fba2c10eac9ffa3cfe992a93a4b7aa58087fbf530c4b",
+      "after": "84b69bd5b6e46924e0a3fba2c10eac9ffa3cfe992a93a4b7aa58087fbf530c4b"
+    },
+    "identical": true
+  },
+  ".data": {
+    "sha256": {
+      "before": "2316a41bdb7baba24ab7c3ff66899bfe93d9ae2cf454d6f4229429369418039f",
+      "after": "2316a41bdb7baba24ab7c3ff66899bfe93d9ae2cf454d6f4229429369418039f"
+    },
+    "identical": true
+  },
+  "before_calls_artifact_sha256": "fea3e5066f6de09e98c8fc5e75b7940fffcea32b23cd2ef7af9404f4f9344539",
+  "after_calls_artifact_sha256": "fea3e5066f6de09e98c8fc5e75b7940fffcea32b23cd2ef7af9404f4f9344539"
+}

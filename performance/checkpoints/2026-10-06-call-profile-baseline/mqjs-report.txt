@@ -1,0 +1,32 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 262  of event 'cycles:u'
+# Event count (approx.): 1012671170
+#
+# Overhead  Symbol                  IPC   [IPC Coverage]
+# ........  ......................  ....................
+#
+    91.78%  [.] JS_Call             -      -            
+     6.72%  [.] JS_StackCheck       -      -            
+     1.01%  [.] js_reverse_val      -      -            
+     0.44%  [.] 0x0000000000102c5e  -      -            
+     0.05%  [.] 0x000000000018a4c0  -      -            
+     0.01%  [.] 0x000000000000bb89  -      -            
+     0.00%  [k] 0xffffffffb7600087  -      -            
+     0.00%  [.] cfree               -      -            
+     0.00%  [k] 0xffffffffb7600005  -      -            
+     0.00%  [.] 0x000000000000297c  -      -            
+     0.00%  [.] 0x00000000000224b9  -      -            
+     0.00%  [k] 0xffffffffb7601280  -      -            
+     0.00%  [.] 0x0000000000003f0c  -      -            
+     0.00%  [.] 0x0000000000003f2e  -      -            
+     0.00%  [.] 0x0000000000003f34  -      -            
+     0.00%  [.] 0x00000000000217e3  -      -            
+
+
+#
+# (Tip: Generate a script for your data: perf script -g <lang>)
+#

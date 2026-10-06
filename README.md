@@ -40,6 +40,7 @@ Coverage: [language control flow](verification/02_language/loops.js), [runtime c
 | Area | Implemented features |
 |---|---|
 | Functions | &bull; Declarations, expressions, and calls<br>&bull; Recursion and closures with captured mutable locals<br>&bull; Async declarations, function expressions, and parenthesized arrow functions suspend at `await` and resume through the embedding host<br>&bull; `this` and `arguments` |
+| Async host tasks | &bull; `await` on pending external plugin calls through `__host`<br>&bull; `await Promise.all([...])` starts multiple external plugin tasks and returns results in input order |
 | Arrow functions | &bull; Parenthesized parameters<br>&bull; Expression and block bodies |
 | Parameters | &bull; Default values<br>&bull; Array and object destructuring<br>&bull; Object rest in bundled parameters |
 | Spread | &bull; Function calls<br>&bull; Array and object literals |
@@ -50,7 +51,30 @@ Coverage: [language control flow](verification/02_language/loops.js), [runtime c
 
 Coverage: [function syntax](verification/02_language/functions.js), [closures and call behavior](verification/03_runtime/functions.js), [class syntax](verification/02_language/class.js).
 
-Async functions can use `await`. Embedded Zig hosts start a script with `VM.executeAsync`; when it returns `.suspended`, the host handles the awaited request and later calls `VM.resumeExecution` with the result or rejection. The continuation owns the VM frames until it completes or the host deinitializes it. Promise objects and a built-in event loop are not part of this first implementation; the command-line runners remain synchronous.
+The generated `g-*` clients are the application API. A client method carries its generated service/method metadata and routes the request through the `nrpc` plugin; application code does not construct plugin payloads itself. Calls can be started at different points and gathered later:
+
+```js
+import { createCompaniesServiceClient } from "g-companies";
+import { createGeoServiceClient } from "g-geo";
+
+const companies = createCompaniesServiceClient({ target: "services" });
+const geo = createGeoServiceClient({ target: "services" });
+
+async function loadDashboard(userId) {
+  var call1 = companies.listCityGroups();
+
+  var title = "Dashboard";
+  var call2 = geo.getCountryCities({ countryCode: "US", limit: 50 });
+  var call3 = companies.getCompany(userId);
+
+  var [cityGroups, cities, company] = await Promise.all([call1, call2, call3]);
+  return { title, cityGroups, cities, company };
+}
+```
+
+The intended route is generated `g-*` method → bundled `nrpc` client helper → `plugin("nrpc").command("call", payload)` → host NRPC plugin → Fujin. The G client packages `target`, `service`, `method`, `args`, and call context. The helper in `libs/zrun/nrpc.ts` already builds this plugin request for the next-arh bundle. The current native zRun runtime does not yet complete this route: it has no NRPC dispatcher wired to Fujin, and the synchronous helper JSON-parses the immediate `__host` response rather than handling a pending task result. The separate `plugin_start`/`plugin_wait` and `Promise.all` code is only the VM-side task prototype so far; it does not make generated G clients work yet.
+
+Once the NRPC route is connected, the VM side can start each generated client request as an external task, then `Promise.all` can gather those handles in input order. This is limited host-task support, not a general JavaScript Promise implementation: nested task groups, user-created promises, `.then()`/`.catch()`, arbitrary thenables, and other Promise combinators are unsupported. Command-line runners remain synchronous.
 
 ## Resident bytecode modules
 

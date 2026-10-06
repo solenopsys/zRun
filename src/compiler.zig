@@ -1754,29 +1754,45 @@ const Parser = struct {
         const context_index = self.loop_depth;
         self.loops[context_index] = .{ .continue_target = null, .accepts_continue = false };
         self.loop_depth += 1;
-        var end_branches: std.ArrayList(usize) = .empty;
-        defer end_branches.deinit(self.allocator);
+        var miss_branches: std.ArrayList(usize) = .empty;
+        defer miss_branches.deinit(self.allocator);
+        var fallthrough_branch: ?usize = null;
+        var default_body: ?usize = null;
         while (self.current.kind == .case_kw or self.current.kind == .default_kw) {
-            var miss_branch: ?usize = null;
-            if (self.current.kind == .case_kw) {
+            const is_default = self.current.kind == .default_kw;
+            if (!is_default) {
+                const test_start = self.code.items.len;
+                for (miss_branches.items) |branch| try self.patchBranch(branch, test_start);
+                miss_branches.clearRetainingCapacity();
                 try self.advance();
                 try self.emitLocalGet(discriminant);
                 try self.expression(1);
                 try self.emit(.strict_eq);
-                miss_branch = try self.emitBranch(.if_false);
+                miss_branches.append(self.allocator, try self.emitBranch(.if_false)) catch return error.OutOfMemory;
             } else {
                 try self.advance();
             }
             try self.expect(.colon);
+            const body_start = self.code.items.len;
+            if (is_default and default_body == null) default_body = body_start;
+            if (self.current.kind == .case_kw or self.current.kind == .default_kw) {
+                if (fallthrough_branch) |branch| try self.patchBranch(branch, body_start);
+                fallthrough_branch = null;
+                fallthrough_branch = try self.emitBranch(.goto);
+                continue;
+            }
+            if (fallthrough_branch) |branch| try self.patchBranch(branch, body_start);
+            fallthrough_branch = null;
             while (self.current.kind != .case_kw and self.current.kind != .default_kw and self.current.kind != .right_brace) {
                 try self.statement();
             }
-            end_branches.append(self.allocator, try self.emitBranch(.goto)) catch return error.OutOfMemory;
-            if (miss_branch) |branch| try self.patchBranch(branch, self.code.items.len);
+            fallthrough_branch = try self.emitBranch(.goto);
         }
         try self.expect(.right_brace);
         const end = self.code.items.len;
-        for (end_branches.items) |branch| try self.patchBranch(branch, end);
+        if (fallthrough_branch) |branch| try self.patchBranch(branch, end);
+        const miss_target = default_body orelse end;
+        for (miss_branches.items) |branch| try self.patchBranch(branch, miss_target);
         const context = self.loops[context_index];
         for (context.break_operands[0..context.break_count]) |operand| try self.patchBranch(operand, end);
         self.loop_depth -= 1;
@@ -3452,7 +3468,7 @@ fn precedence(kind: TokenKind) ?u8 {
 }
 
 fn isBuiltinNamespace(name: []const u8) bool {
-    return std.mem.eql(u8, name, "Array") or std.mem.eql(u8, name, "Object") or std.mem.eql(u8, name, "JSON") or std.mem.eql(u8, name, "Math");
+    return std.mem.eql(u8, name, "Array") or std.mem.eql(u8, name, "Object") or std.mem.eql(u8, name, "JSON") or std.mem.eql(u8, name, "Math") or std.mem.eql(u8, name, "Promise");
 }
 
 fn isErrorConstructor(name: []const u8) bool {
@@ -3465,13 +3481,14 @@ fn isErrorConstructor(name: []const u8) bool {
 fn isUnavailableHostGlobal(name: []const u8) bool {
     const names = [_][]const u8{
         "document", "window",           "self",    "navigator",  "localStorage", "sessionStorage",       "Node",                 "Element",     "Text", "HTMLElement", "SVGElement",
-        "Event",    "MutationObserver", "Promise", "setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame",
+        "Event",    "MutationObserver", "setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame",
     };
     for (names) |candidate| if (std.mem.eql(u8, name, candidate)) return true;
     return false;
 }
 
 fn builtinFunction(namespace: []const u8, method: []const u8) ?usize {
+    if (std.mem.eql(u8, namespace, "Promise") and std.mem.eql(u8, method, "all")) return 67;
     if (std.mem.eql(u8, namespace, "Array") and std.mem.eql(u8, method, "isArray")) return 2;
     if (std.mem.eql(u8, namespace, "Array") and std.mem.eql(u8, method, "from")) return 64;
         if (std.mem.eql(u8, namespace, "Object")) {

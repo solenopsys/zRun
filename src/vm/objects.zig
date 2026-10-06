@@ -124,6 +124,9 @@ pub const IteratorObject = struct {
     values: std.ArrayList(Value) = .empty,
     index: usize = 0,
 };
+pub const ExternalTaskPromiseObject = struct { task_id: u64 };
+pub const ExternalTaskEntry = union(enum) { value: Value, task_id: u64 };
+pub const ExternalTaskGroupObject = struct { entries: std.ArrayList(ExternalTaskEntry) = .empty };
 pub const RegexObject = struct { pattern: []u8, ignore_case: bool, global: bool };
 pub const BigIntObject = struct { value: std.math.big.int.Managed };
 
@@ -154,6 +157,10 @@ pub const Store = struct {
     collection_index: std.AutoHashMapUnmanaged(usize, *CollectionObject) = .empty,
     iterators: std.ArrayList(*IteratorObject) = .empty,
     iterator_index: std.AutoHashMapUnmanaged(usize, *IteratorObject) = .empty,
+    external_task_promises: std.ArrayList(*ExternalTaskPromiseObject) = .empty,
+    external_task_promise_index: std.AutoHashMapUnmanaged(usize, *ExternalTaskPromiseObject) = .empty,
+    external_task_groups: std.ArrayList(*ExternalTaskGroupObject) = .empty,
+    external_task_group_index: std.AutoHashMapUnmanaged(usize, *ExternalTaskGroupObject) = .empty,
     regexes: std.ArrayList(*RegexObject) = .empty,
     regex_index: std.AutoHashMapUnmanaged(usize, *RegexObject) = .empty,
     bigints: std.ArrayList(*BigIntObject) = .empty,
@@ -206,6 +213,15 @@ pub const Store = struct {
         }
         self.iterators.deinit(self.allocator);
         self.iterator_index.deinit(self.allocator);
+        for (self.external_task_groups.items) |group| {
+            group.entries.deinit(self.allocator);
+            self.allocator.destroy(group);
+        }
+        self.external_task_groups.deinit(self.allocator);
+        self.external_task_group_index.deinit(self.allocator);
+        for (self.external_task_promises.items) |promise| self.allocator.destroy(promise);
+        self.external_task_promises.deinit(self.allocator);
+        self.external_task_promise_index.deinit(self.allocator);
         for (self.regexes.items) |regex| {
             self.allocator.free(regex.pattern);
             self.allocator.destroy(regex);
@@ -255,6 +271,38 @@ pub const Store = struct {
         };
         self.array_cache.put(array);
         return Value.fromPointer(array);
+    }
+
+    pub fn createExternalTaskPromise(self: *Store, task_id: u64) !Value {
+        const promise = try self.allocator.create(ExternalTaskPromiseObject);
+        errdefer self.allocator.destroy(promise);
+        promise.* = .{ .task_id = task_id };
+        try self.external_task_promises.append(self.allocator, promise);
+        errdefer _ = self.external_task_promises.pop();
+        try self.external_task_promise_index.put(self.allocator, @intFromPtr(promise), promise);
+        return Value.fromPointer(promise);
+    }
+
+    pub fn findExternalTaskPromise(self: *Store, value: Value) ?*ExternalTaskPromiseObject {
+        const pointer = value.asPointer() orelse return null;
+        return self.external_task_promise_index.get(@intFromPtr(pointer));
+    }
+
+    pub fn createExternalTaskGroup(self: *Store, entries: []const ExternalTaskEntry) !Value {
+        const group = try self.allocator.create(ExternalTaskGroupObject);
+        errdefer self.allocator.destroy(group);
+        group.* = .{};
+        errdefer group.entries.deinit(self.allocator);
+        try group.entries.appendSlice(self.allocator, entries);
+        try self.external_task_groups.append(self.allocator, group);
+        errdefer _ = self.external_task_groups.pop();
+        try self.external_task_group_index.put(self.allocator, @intFromPtr(group), group);
+        return Value.fromPointer(group);
+    }
+
+    pub fn findExternalTaskGroup(self: *Store, value: Value) ?*ExternalTaskGroupObject {
+        const pointer = value.asPointer() orelse return null;
+        return self.external_task_group_index.get(@intFromPtr(pointer));
     }
 
     pub fn setArrayLength(self: *Store, value: Value, length: usize) !void {

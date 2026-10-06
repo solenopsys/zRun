@@ -1,0 +1,33 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 420  of event 'cycles:u'
+# Event count (approx.): 1847083876
+#
+# Overhead  Symbol                                 IPC   [IPC Coverage]
+# ........  .....................................  ....................
+#
+    49.42%  [.] vm.VM.executeFramesImpl__func_711  -      -            
+    36.14%  [.] heap.ArenaAllocator.alloc          -      -            
+     9.76%  [.] vm.CallFrame.init                  -      -            
+     3.45%  [.] heap.ArenaAllocator.free           -      -            
+     0.73%  [.] vm.isTruthyWithObjects             -      -            
+     0.49%  [.] vm.stringBytes                     -      -            
+     0.01%  [.] 0x000000000000b1f2                 -      -            
+     0.01%  [.] 0x0000000000017a92                 -      -            
+     0.00%  [.] 0x0000000000020299                 -      -            
+     0.00%  [.] execvpe                            -      -            
+     0.00%  [k] 0xffffffffb7601290                 -      -            
+     0.00%  [.] cfree                              -      -            
+     0.00%  [.] 0x00000000000224b9                 -      -            
+     0.00%  [k] 0xffffffffb7601280                 -      -            
+     0.00%  [.] 0x0000000000003f0c                 -      -            
+     0.00%  [.] 0x0000000000003f30                 -      -            
+     0.00%  [.] 0x0000000000022494                 -      -            
+
+
+#
+# (Tip: Generate a script for your data: perf script -g <lang>)
+#

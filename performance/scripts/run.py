@@ -138,6 +138,35 @@ def main():
             if args.json:
                 args.json.parent.mkdir(parents=True, exist_ok=True)
                 args.json.write_text(json.dumps(report, indent=2) + "\n")
+    zrun_name = "zRun after" if args.baseline_compiler else "zRun"
+    reference_name = "MQuickJS"
+
+    def geometric_mean(values):
+        return math.exp(statistics.mean(math.log(value) for value in values))
+
+    compile_ratio = geometric_mean([
+        row["engines"][zrun_name]["compile_ns"] / row["engines"][reference_name]["compile_ns"]
+        for row in report["rows"]
+    ])
+    execute_ratio = geometric_mean([
+        row["engines"][zrun_name]["execute_ns"] / row["engines"][reference_name]["execute_ns"]
+        for row in report["rows"]
+    ])
+    total_ratio = geometric_mean([
+        (row["engines"][zrun_name]["compile_ns"] + row["engines"][zrun_name]["execute_ns"])
+        / (row["engines"][reference_name]["compile_ns"] + row["engines"][reference_name]["execute_ns"])
+        for row in report["rows"]
+    ])
+    report["geomean_ratio_zrun_to_mquickjs"] = {
+        "compile": compile_ratio,
+        "execute": execute_ratio,
+        "compile_plus_execute": total_ratio,
+    }
+    print("\nOverall geometric-mean time vs MQuickJS (equal weight per workload):")
+    print(f"compile: {compile_ratio:.3f}x ({(compile_ratio - 1) * 100:+.1f}% time)")
+    print(f"execute: {execute_ratio:.3f}x ({(execute_ratio - 1) * 100:+.1f}% time)")
+    print(f"compile + execute: {total_ratio:.3f}x ({(total_ratio - 1) * 100:+.1f}% time)")
+
     source_directory = (args.mquickjs_source or reference.parent).resolve()
     if (source_directory / "mquickjs.c").is_file():
         zrun_lines, mqjs_lines = source_line_counts(source_directory)

@@ -22,7 +22,8 @@ const RuntimeContext = struct {
     plugin_call: ?HostPluginCall = null,
     plugin_start: ?HostPluginStart = null,
     plugin_wait: ?HostPluginWait = null,
-    pending_task_id: ?u64 = null,
+    pending_allocator: std.mem.Allocator,
+    pending_task_ids: std.ArrayList(u64) = .empty,
 };
 
 const native_function_list = [_]VM.NativeFunction{
@@ -93,6 +94,7 @@ const native_function_list = [_]VM.NativeFunction{
     builtin_plugin.arrayFrom,
     builtin_plugin.mathMax,
     builtin_plugin.mathMin,
+    externalPromiseAll,
 };
 
 pub const HostPluginCall = *const fn (?*anyopaque, std.mem.Allocator, []const u8) anyerror![]const u8;
@@ -164,7 +166,9 @@ pub fn executeWithOptions(
         .plugin_call = options.plugin_call,
         .plugin_start = options.plugin_start,
         .plugin_wait = options.plugin_wait,
+        .pending_allocator = allocator,
     };
+    defer context.pending_task_ids.deinit(allocator);
     const global_this = try objects.createObject();
     try builtin_plugin.installObjectGlobal(&objects, global_this);
     const native_methods = arrayNativeMethods();
@@ -245,6 +249,7 @@ pub const AsyncSession = struct {
             .plugin_call = options.plugin_call,
             .plugin_start = options.plugin_start,
             .plugin_wait = options.plugin_wait,
+            .pending_allocator = allocator,
         };
         const global_this = try self.objects.createObject();
         try builtin_plugin.installObjectGlobal(&self.objects, global_this);
@@ -284,7 +289,7 @@ pub const AsyncSession = struct {
             continuation.deinit();
             self.pending = null;
         }
-        self.context.pending_task_id = null;
+        self.context.pending_task_ids.clearRetainingCapacity();
         if (self.started) {
             _ = self.request_arena.reset(.{ .retain_with_limit = max_request_arena_capacity });
             self.objects = ObjectStore.init(self.request_arena.allocator());
@@ -308,6 +313,7 @@ pub const AsyncSession = struct {
     pub fn resumeExecution(self: *AsyncSession, result: VM.AwaitResult) !VM.Outcome {
         const continuation = self.pending orelse return error.NoPendingExecution;
         self.pending = null;
+        self.context.pending_task_ids.clearRetainingCapacity();
         const outcome = try self.vm.resumeExecution(continuation, result);
         self.track(outcome);
         return outcome;
@@ -315,7 +321,7 @@ pub const AsyncSession = struct {
 
     pub fn rejectTimedOut(self: *AsyncSession) !VM.Outcome {
         self.timed_out = true;
-        self.context.pending_task_id = null;
+        self.context.pending_task_ids.clearRetainingCapacity();
         const reason = try self.objects.createString("TimeoutError: awaited host operation timed out");
         return self.resumeExecution(.{ .rejected = reason });
     }
@@ -325,23 +331,44 @@ pub const AsyncSession = struct {
     }
 
     pub fn pendingHostTask(self: *const AsyncSession) ?u64 {
-        return self.context.pending_task_id;
+        return if (self.context.pending_task_ids.items.len == 0) null else self.context.pending_task_ids.items[0];
     }
 
     pub fn waitForHostTask(self: *AsyncSession) !VM.Outcome {
-        const task_id = self.context.pending_task_id orelse return error.NoPendingHostTask;
+        const continuation = self.pending orelse return error.NoPendingExecution;
         const wait = self.context.plugin_wait orelse return error.PluginWaitUnavailable;
-        const response = wait(self.context.plugin_context, self.allocator, task_id, self.await_timeout_ms) catch |err| {
-            self.context.pending_task_id = null;
+        const awaited = continuation.awaited;
+        if (self.objects.findExternalTaskGroup(awaited)) |group| {
+            const values = try self.allocator.alloc(Value, group.entries.items.len);
+            defer self.allocator.free(values);
+            for (group.entries.items, 0..) |entry, index| {
+                switch (entry) {
+                    .value => |value| values[index] = value,
+                    .task_id => |task_id| {
+                        const response = wait(self.context.plugin_context, self.allocator, task_id, self.await_timeout_ms) catch |err| {
+                            self.context.pending_task_ids.clearRetainingCapacity();
+                            const reason = try self.objects.createString(@errorName(err));
+                            return self.resumeExecution(.{ .rejected = reason });
+                        };
+                        const bytes = response orelse return self.rejectTimedOut();
+                        values[index] = try self.objects.createString(bytes);
+                    },
+                }
+            }
+            self.context.pending_task_ids.clearRetainingCapacity();
+            const result = try self.objects.createArray(values);
+            return self.resumeExecution(.{ .resolved = result });
+        }
+        const promise = self.objects.findExternalTaskPromise(awaited) orelse return error.NoPendingHostTask;
+        const response = wait(self.context.plugin_context, self.allocator, promise.task_id, self.await_timeout_ms) catch |err| {
+            self.context.pending_task_ids.clearRetainingCapacity();
             const reason = try self.objects.createString(@errorName(err));
             return self.resumeExecution(.{ .rejected = reason });
         };
-        self.context.pending_task_id = null;
-        if (response) |bytes| {
-            const value = try self.objects.createString(bytes);
-            return self.resumeExecution(.{ .resolved = value });
-        }
-        return self.rejectTimedOut();
+        const bytes = response orelse return self.rejectTimedOut();
+        self.context.pending_task_ids.clearRetainingCapacity();
+        const value = try self.objects.createString(bytes);
+        return self.resumeExecution(.{ .resolved = value });
     }
 
     pub fn writeResult(self: *AsyncSession, value: Value) !void {
@@ -367,6 +394,7 @@ pub const AsyncSession = struct {
         self.output.deinit();
         self.error_output.deinit();
         self.host_json.deinit(self.allocator);
+        self.context.pending_task_ids.deinit(self.allocator);
         if (self.arguments.len != 0) self.allocator.free(self.arguments);
         self.allocator.destroy(self);
     }
@@ -522,9 +550,8 @@ fn hostBridge(native_context: *VM.NativeCallContext, arguments: []const Value) a
             return switch (try start(context.plugin_context, native_context.objects.allocator, name)) {
                 .completed => |response| try native_context.objects.createString(response),
                 .pending => |task_id| blk: {
-                    if (context.pending_task_id != null) return error.PluginTaskAlreadyPending;
-                    context.pending_task_id = task_id;
-                    break :blk Value.undefined_value;
+                    try context.pending_task_ids.append(context.pending_allocator, task_id);
+                    break :blk try native_context.objects.createExternalTaskPromise(task_id);
                 },
             };
         }
@@ -543,6 +570,26 @@ fn hostBridge(native_context: *VM.NativeCallContext, arguments: []const Value) a
     std.crypto.hash.sha2.Sha256.hash(data, &digest, .{});
     const hex = std.fmt.bytesToHex(digest, .lower);
     return native_context.objects.createString(&hex);
+}
+
+fn externalPromiseAll(native_context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0) return native_context.objects.createArray(&.{});
+    const array = native_context.objects.findArray(arguments[0]) orelse return error.TypeError;
+    const entries = try native_context.objects.allocator.alloc(@import("vm/objects.zig").ExternalTaskEntry, array.items.items.len);
+    defer native_context.objects.allocator.free(entries);
+    var has_external_task = false;
+    for (array.items.items, 0..) |value, index| {
+        if (native_context.objects.findExternalTaskPromise(value)) |promise| {
+            has_external_task = true;
+            entries[index] = .{ .task_id = promise.task_id };
+        } else if (native_context.objects.findExternalTaskGroup(value) != null) {
+            return error.NestedExternalTaskGroupUnsupported;
+        } else {
+            entries[index] = .{ .value = value };
+        }
+    }
+    if (!has_external_task) return native_context.objects.createArray(array.items.items);
+    return native_context.objects.createExternalTaskGroup(entries);
 }
 
 test "loaded module invokes a named function without decoding the image again" {
@@ -730,4 +777,56 @@ test "async plugin result resumes await and timeout becomes a catchable error" {
     try timed_out.writeResult(timeout_value);
     try std.testing.expectEqualStrings("504\n", timed_out.outputBytes());
     try std.testing.expect(timed_out.pending == null);
+}
+
+const TestConcurrentAsyncPlugin = struct {
+    started: usize = 0,
+    waited: usize = 0,
+
+    fn start(context: ?*anyopaque, _: std.mem.Allocator, request: []const u8) anyerror!HostPluginStartResult {
+        const self: *@This() = @ptrCast(@alignCast(context orelse return error.MissingTestContext));
+        self.started += 1;
+        if (std.mem.indexOf(u8, request, "first") != null) return .{ .pending = 81 };
+        if (std.mem.indexOf(u8, request, "second") != null) return .{ .pending = 82 };
+        return error.UnknownTestRequest;
+    }
+
+    fn wait(context: ?*anyopaque, _: std.mem.Allocator, task_id: u64, _: u64) anyerror!?[]const u8 {
+        const self: *@This() = @ptrCast(@alignCast(context orelse return error.MissingTestContext));
+        self.waited += 1;
+        return switch (task_id) {
+            81 => "one",
+            82 => "two",
+            else => error.UnknownTestTask,
+        };
+    }
+};
+
+test "Promise.all awaits multiple external plugin tasks and preserves input order" {
+    const allocator = std.testing.allocator;
+    const source = "async function load() { var call1 = __host('{\\\"op\\\":\\\"plugin.call\\\",\\\"which\\\":\\\"first\\\"}'); var label = 'done:'; var call2 = __host('{\\\"op\\\":\\\"plugin.call\\\",\\\"which\\\":\\\"second\\\"}'); var values = await Promise.all([call1, call2]); return label + values[0] + values[1]; } load();";
+    var program = try @import("compiler.zig").compile(allocator, source);
+    defer program.deinit(allocator);
+
+    var plugin = TestConcurrentAsyncPlugin{};
+    const session = try AsyncSession.create(allocator, program.bytecode(), .{
+        .plugin_context = &plugin,
+        .plugin_start = TestConcurrentAsyncPlugin.start,
+        .plugin_wait = TestConcurrentAsyncPlugin.wait,
+    });
+    defer session.deinit();
+
+    const pending = try session.start();
+    try std.testing.expect(pending == .suspended);
+    try std.testing.expectEqual(@as(usize, 2), plugin.started);
+    try std.testing.expectEqual(@as(?u64, 81), session.pendingHostTask());
+
+    const completed = try session.waitForHostTask();
+    const value = switch (completed) {
+        .value => |result| result,
+        else => return error.ExpectedCompletedExecution,
+    };
+    try session.writeResult(value);
+    try std.testing.expectEqual(@as(usize, 2), plugin.waited);
+    try std.testing.expectEqualStrings("done:onetwo\n", session.outputBytes());
 }

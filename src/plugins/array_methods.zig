@@ -4,7 +4,9 @@ const VM = @import("../vm.zig").VM;
 
 fn receiver(context: *VM.NativeCallContext, arguments: []const Value) anyerror!*@import("../vm/objects.zig").ArrayObject {
     if (arguments.len == 0) return error.MissingArrayReceiver;
-    return context.objects.findArray(arguments[0]) orelse error.InvalidArrayReceiver;
+    const array = context.objects.findArray(arguments[0]) orelse return error.InvalidArrayReceiver;
+    try array.materialize(context.objects.allocator);
+    return array;
 }
 
 const ResolvedCallback = union(enum) {
@@ -128,6 +130,7 @@ fn flatMapImpl(comptime profiled: bool, context: *VM.NativeCallContext, argument
     for (source.items.items, 0..) |item, index| {
         const mapped = try callback(profiled, context, mapper, item, index, null);
         if (context.objects.findArray(mapped)) |array| {
+            try array.materialize(context.objects.allocator);
             try result.items.appendSlice(context.objects.allocator, array.items.items);
         } else {
             try result.items.append(context.objects.allocator, mapped);
@@ -174,7 +177,7 @@ pub fn concat(context: *VM.NativeCallContext, arguments: []const Value) anyerror
     var length = source.items.items.len;
     for (arguments[1..]) |argument| {
         length = std.math.add(usize, length, if (context.objects.findArray(argument)) |array|
-            array.items.items.len
+            array.len()
         else
             1) catch return error.ArrayTooLarge;
     }
@@ -184,6 +187,7 @@ pub fn concat(context: *VM.NativeCallContext, arguments: []const Value) anyerror
     try result.items.appendSlice(context.objects.allocator, source.items.items);
     for (arguments[1..]) |argument| {
         if (context.objects.findArray(argument)) |array| {
+            try array.materialize(context.objects.allocator);
             try result.items.appendSlice(context.objects.allocator, array.items.items);
         } else {
             try result.items.append(context.objects.allocator, argument);
@@ -198,6 +202,7 @@ pub fn shift(context: *VM.NativeCallContext, arguments: []const Value) anyerror!
     const first = source.items.items[0];
     std.mem.copyForwards(Value, source.items.items[0 .. source.items.items.len - 1], source.items.items[1..]);
     source.items.items = source.items.items[0 .. source.items.items.len - 1];
+    source.logical_length = source.items.items.len;
     return first;
 }
 
@@ -244,12 +249,34 @@ fn toInteger(value: Value) ?i64 {
 
 pub fn slice(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
     const source = try receiver(context, arguments);
-    const len = source.items.items.len;
+    const len = source.len();
     const raw_start: i64 = if (arguments.len > 1) arguments[1].asInt() orelse 0 else 0;
     const start: usize = if (raw_start < 0) @intCast(@max(0, @as(i64, @intCast(len)) + raw_start)) else @intCast(@min(raw_start, @as(i64, @intCast(len))));
     const raw_end: i64 = if (arguments.len > 2) arguments[2].asInt() orelse @intCast(len) else @intCast(len);
     const end: usize = if (raw_end < 0) @intCast(@max(0, @as(i64, @intCast(len)) + raw_end)) else @intCast(@min(raw_end, @as(i64, @intCast(len))));
+    if (source.byte_storage) |bytes| {
+        const output = try context.objects.createByteArray(@max(start, end) - start);
+        const target = context.objects.findArray(output).?.byte_storage.?;
+        @memcpy(target, bytes[start..@max(start, end)]);
+        return output;
+    }
     return context.objects.createArray(source.items.items[start..@max(start, end)]);
+}
+
+pub fn byteSet(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len < 2) return error.MissingArrayReceiver;
+    const target = context.objects.findArray(arguments[0]) orelse return error.InvalidArrayReceiver;
+    const output = target.byte_storage orelse return error.InvalidArrayReceiver;
+    const source = context.objects.findArray(arguments[1]) orelse return error.InvalidArrayReceiver;
+    const raw_offset: i32 = if (arguments.len > 2) arguments[2].asInt() orelse return error.InvalidOffset else 0;
+    if (raw_offset < 0) return error.InvalidOffset;
+    const offset: usize = @intCast(raw_offset);
+    if (offset > output.len or source.len() > output.len - offset) return error.InvalidOffset;
+    for (0..source.len()) |index| {
+        const byte = source.get(index).asInt() orelse return error.InvalidByte;
+        output[offset + index] = @truncate(@as(u32, @bitCast(byte)));
+    }
+    return Value.undefined_value;
 }
 
 pub fn join(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {

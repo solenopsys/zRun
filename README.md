@@ -167,6 +167,25 @@ zig build -Doptimize=fast
 compiler. The `zrun` executable remains a development runner for source fixtures
 and upstream MQuickJS bytecode.
 
+Artifacts use format version 2 for optional metadata. The header stores an
+absolute offset and byte length for a compact UTF-8 JSON section at the end of
+the artifact. The loader validates and parses the document once per module load,
+then indexes function records by artifact-local function ID. Version 1 artifacts
+remain readable. Metadata is not interpreted on each VM instruction or call.
+
+Compile with a metadata sidecar:
+
+```sh
+zrun-compile path/to/bundle.js --metadata-json path/to/metadata.json > path/to/program.zbc
+```
+
+The JSON document starts with `{"format":"zrun.metadata/1"}`. Its optional
+`functions` array contains records such as
+`{"id":3,"visibility":"public","nrpc":{"service":"users","method":"get"}}`.
+Function IDs are assigned in pre-order, starting at zero for the root function;
+plugins can retrieve a function record from the loaded module by that ID. Other
+plugin-specific fields are retained without interpretation by the VM.
+
 ### Remote bytecode workers (pilot)
 
 The pilot starts one isolated zRun process per bytecode URL. Each process reads its own `ZRUN_BYTECODE_URL`, downloads a raw MQuickJS bytecode image, relocates it, and executes it:

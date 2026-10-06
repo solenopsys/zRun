@@ -95,6 +95,11 @@ const native_function_list = [_]VM.NativeFunction{
     builtin_plugin.mathMax,
     builtin_plugin.mathMin,
     externalPromiseAll,
+    builtin_plugin.isByteArray,
+    array_methods.byteSet,
+    builtin_plugin.bufferFrom,
+    builtin_plugin.bufferIsBuffer,
+    builtin_plugin.bufferToString,
 };
 
 pub const HostPluginCall = *const fn (?*anyopaque, std.mem.Allocator, []const u8) anyerror![]const u8;
@@ -427,7 +432,7 @@ pub fn createModuleFunctionAsyncSession(
 	return AsyncSession.create(allocator, function.*, options);
 }
 
-fn arrayNativeMethods() [37]VM.NativeMethod {
+fn arrayNativeMethods() [40]VM.NativeMethod {
     return .{
         .{ .name = "push", .receiver = .array, .native_index = 1 },
         .{ .name = "map", .receiver = .array, .native_index = 11 },
@@ -466,6 +471,9 @@ fn arrayNativeMethods() [37]VM.NativeMethod {
         .{ .name = "concat", .receiver = .string, .native_index = 50 },
         .{ .name = "indexOf", .receiver = .string, .native_index = 51 },
         .{ .name = "startsWith", .receiver = .string, .native_index = 52 },
+        .{ .name = "slice", .receiver = .byte_array, .native_index = 18 },
+        .{ .name = "set", .receiver = .byte_array, .native_index = 69 },
+        .{ .name = "toString", .receiver = .byte_array, .native_index = 72 },
     };
 }
 
@@ -575,10 +583,11 @@ fn hostBridge(native_context: *VM.NativeCallContext, arguments: []const Value) a
 fn externalPromiseAll(native_context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
     if (arguments.len == 0) return native_context.objects.createArray(&.{});
     const array = native_context.objects.findArray(arguments[0]) orelse return error.TypeError;
-    const entries = try native_context.objects.allocator.alloc(@import("vm/objects.zig").ExternalTaskEntry, array.items.items.len);
+    const entries = try native_context.objects.allocator.alloc(@import("vm/objects.zig").ExternalTaskEntry, array.len());
     defer native_context.objects.allocator.free(entries);
     var has_external_task = false;
-    for (array.items.items, 0..) |value, index| {
+    for (0..array.len()) |index| {
+        const value = array.get(index);
         if (native_context.objects.findExternalTaskPromise(value)) |promise| {
             has_external_task = true;
             entries[index] = .{ .task_id = promise.task_id };
@@ -588,7 +597,12 @@ fn externalPromiseAll(native_context: *VM.NativeCallContext, arguments: []const 
             entries[index] = .{ .value = value };
         }
     }
-    if (!has_external_task) return native_context.objects.createArray(array.items.items);
+    if (!has_external_task) {
+        const values = try native_context.objects.allocator.alloc(Value, array.len());
+        defer native_context.objects.allocator.free(values);
+        for (0..array.len()) |index| values[index] = array.get(index);
+        return native_context.objects.createArray(values);
+    }
     return native_context.objects.createExternalTaskGroup(entries);
 }
 

@@ -118,7 +118,57 @@ pub fn encodeURIComponent(context: *VM.NativeCallContext, arguments: []const Val
 }
 
 pub fn arrayIsArray(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
-    return Value.boolean(arguments.len != 0 and context.objects.findArray(arguments[0]) != null);
+    return Value.boolean(arguments.len != 0 and context.objects.findArray(arguments[0]) != null and context.objects.findArray(arguments[0]).?.byte_storage == null);
+}
+
+pub fn isByteArray(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0) return Value.false_value;
+    const array = context.objects.findArray(arguments[0]) orelse return Value.false_value;
+    return Value.boolean(array.byte_storage != null);
+}
+
+pub fn bufferFrom(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0) return error.MissingBufferSource;
+    const source = arguments[0];
+    if (context.objects.findString(source)) |text| {
+        const output = try context.objects.createByteArray(text.len);
+        const bytes = context.objects.findArray(output).?.byte_storage.?;
+        @memcpy(bytes, text);
+        context.objects.findArray(output).?.is_buffer = true;
+        return output;
+    }
+    const input = context.objects.findArray(source) orelse return error.InvalidBufferSource;
+    const output = try context.objects.createByteArray(input.len());
+    const bytes = context.objects.findArray(output).?.byte_storage.?;
+    for (0..input.len()) |index| {
+        const number = input.get(index).asInt() orelse return error.InvalidByte;
+        if (number < 0 or number > 255) return error.InvalidByte;
+        bytes[index] = @intCast(number);
+    }
+    context.objects.findArray(output).?.is_buffer = true;
+    return output;
+}
+
+pub fn bufferIsBuffer(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0) return Value.false_value;
+    const value = arguments[0];
+    if (context.objects.findArray(value)) |array| {
+        if (array.is_buffer) return Value.true_value;
+        _ = context.objects.markBuffer(value) catch return Value.false_value;
+        return Value.true_value;
+    }
+    return Value.false_value;
+}
+
+pub fn bufferToString(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0) return error.MissingBufferReceiver;
+    const array = context.objects.findArray(arguments[0]) orelse return error.InvalidBufferReceiver;
+    const bytes = array.byte_storage orelse return error.InvalidBufferReceiver;
+    if (arguments.len > 1) {
+        const encoding = context.objects.findString(arguments[1]) orelse return error.InvalidBufferEncoding;
+        if (!std.mem.eql(u8, encoding, "utf8") and !std.mem.eql(u8, encoding, "utf-8")) return error.UnsupportedBufferEncoding;
+    }
+    return context.objects.createString(bytes);
 }
 
 pub fn arrayConstructor(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
@@ -135,10 +185,9 @@ pub fn arrayConstructor(context: *VM.NativeCallContext, arguments: []const Value
             null;
         if (length_value.asInt() != null or length_value.asFloat64() != null) {
             const length = requested_length orelse return error.InvalidArrayLength;
-            const values = try context.objects.allocator.alloc(Value, length);
-            defer context.objects.allocator.free(values);
-            @memset(values, Value.undefined_value);
-            return context.objects.createArray(values);
+            const result = try context.objects.createArrayWithCapacity(0);
+            try context.objects.setArrayLength(result, length);
+            return result;
         }
     }
     return context.objects.createArray(arguments);
@@ -146,7 +195,12 @@ pub fn arrayConstructor(context: *VM.NativeCallContext, arguments: []const Value
 
 pub fn arrayFrom(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
     if (arguments.len == 0) return context.objects.createArray(&.{});
-    if (context.objects.findArray(arguments[0])) |array| return context.objects.createArray(array.items.items);
+    if (context.objects.findArray(arguments[0])) |array| {
+        const values = try context.objects.allocator.alloc(Value, array.len());
+        defer context.objects.allocator.free(values);
+        for (values, 0..) |*item, index| item.* = array.get(index);
+        return context.objects.createArray(values);
+    }
     if (context.objects.findString(arguments[0])) |string| {
         var items: std.ArrayList(Value) = .empty;
         defer items.deinit(context.objects.allocator);
@@ -460,7 +514,7 @@ fn toJson(objects: anytype, value: Value) anyerror!std.json.Value {
     if (objects.findString(value)) |string| return .{ .string = string };
     if (objects.findArray(value)) |array| {
         var result = std.json.Array.init(objects.allocator);
-        for (array.items.items) |item| try result.append(try toJson(objects, item));
+        for (0..array.len()) |index| try result.append(try toJson(objects, array.get(index)));
         return .{ .array = result };
     }
     if (objects.findObject(value)) |object| {

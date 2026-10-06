@@ -145,6 +145,7 @@ pub const Opcode = enum(u8) {
     sub_loc,
     await,
     to_bigint,
+    byte_array_new,
 };
 
 pub const count = @typeInfo(Opcode).@"enum".field_names.len;
@@ -160,5 +161,6 @@ test "opcode numbers preserve upstream order and compact opcode groups" {
     try std.testing.expectEqual(@as(u8, 138), @intFromEnum(Opcode.sub_loc));
     try std.testing.expectEqual(@as(u8, 139), @intFromEnum(Opcode.await));
     try std.testing.expectEqual(@as(u8, 140), @intFromEnum(Opcode.to_bigint));
-    try std.testing.expectEqual(@as(usize, 141), count);
+    try std.testing.expectEqual(@as(u8, 141), @intFromEnum(Opcode.byte_array_new));
+    try std.testing.expectEqual(@as(usize, 142), count);
 }

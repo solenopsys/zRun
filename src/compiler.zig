@@ -494,6 +494,21 @@ fn sourceDeclaresName(source: []const u8, name: []const u8) bool {
             if (std.mem.eql(u8, word, "var") or std.mem.eql(u8, word, "let") or std.mem.eql(u8, word, "const")) {
                 var next = cursor;
                 while (next < source.len and std.ascii.isWhitespace(source[next])) : (next += 1) {}
+                if (next < source.len and source[next] == '[') {
+                    next += 1;
+                    while (next < source.len and source[next] != ']') {
+                        while (next < source.len and (std.ascii.isWhitespace(source[next]) or source[next] == ',')) : (next += 1) {}
+                        if (next >= source.len or source[next] == ']') break;
+                        if (!(std.ascii.isAlphabetic(source[next]) or source[next] == '_' or source[next] == '$')) break;
+                        const binding_start = next;
+                        next += 1;
+                        while (next < source.len and (std.ascii.isAlphanumeric(source[next]) or source[next] == '_' or source[next] == '$')) : (next += 1) {}
+                        if (std.mem.eql(u8, source[binding_start..next], name)) return true;
+                        while (next < source.len and std.ascii.isWhitespace(source[next])) : (next += 1) {}
+                        if (next < source.len and source[next] == '=') break;
+                        if (next < source.len and source[next] != ',' and source[next] != ']') break;
+                    }
+                }
                 if (next < source.len and source[next] == '{') {
                     next += 1;
                     while (next < source.len and source[next] != '}') {
@@ -939,7 +954,8 @@ const Parser = struct {
                         slots.append(self.allocator, null) catch return error.OutOfMemory;
                     } else {
                         if (self.current.kind != .identifier) return error.ExpectedIdentifier;
-                        const local = try self.declareLocal(self.lexeme());
+                        const binding = self.lexeme();
+                        const local = self.locals.get(binding) orelse try self.declareLocal(binding);
                         slots.append(self.allocator, local) catch return error.OutOfMemory;
                         try self.advance();
                     }
@@ -1284,6 +1300,19 @@ const Parser = struct {
                 try self.emitU16(@intCast(property_index));
                 try self.expressionSequenceTail();
                 try self.emit(.drop);
+                try self.expect(.semicolon);
+                return;
+            }
+            if (self.current.kind == .increment or self.current.kind == .decrement) {
+                const operator = self.current.kind;
+                const property_index = try self.addStringConstant(property);
+                try self.emit(.dup);
+                try self.emit(.get_field);
+                try self.emitU16(@intCast(property_index));
+                try self.emit(if (operator == .increment) .inc else .dec);
+                try self.emit(.put_field);
+                try self.emitU16(@intCast(property_index));
+                try self.advance();
                 try self.expect(.semicolon);
                 return;
             }
@@ -2299,6 +2328,12 @@ const Parser = struct {
                     try self.emit(.push_global_this);
                 } else if (std.mem.eql(u8, name, "__host")) {
                     _ = try self.emitConstant(Value.shortFunction(39));
+                } else if (std.mem.eql(u8, name, "__zrunIsByteArray")) {
+                    _ = try self.emitConstant(Value.shortFunction(68));
+                } else if (std.mem.eql(u8, name, "__zrunBufferFrom")) {
+                    _ = try self.emitConstant(Value.shortFunction(70));
+                } else if (std.mem.eql(u8, name, "__zrunBufferIsBuffer")) {
+                    _ = try self.emitConstant(Value.shortFunction(71));
                 } else if (std.mem.eql(u8, name, "Boolean")) {
                     _ = try self.emitConstant(Value.shortFunction(41));
                 } else if (std.mem.eql(u8, name, "String")) {
@@ -2891,6 +2926,18 @@ const Parser = struct {
         try self.advance();
         if (self.current.kind != .identifier) return error.ExpectedIdentifier;
         const name = self.lexeme();
+        if (std.mem.eql(u8, name, "Uint8Array")) {
+            try self.advance();
+            try self.expect(.left_paren);
+            if (self.current.kind == .right_paren) {
+                try self.emit(.undefined_value);
+            } else {
+                try self.expression(1);
+            }
+            try self.expect(.right_paren);
+            try self.emit(.byte_array_new);
+            return;
+        }
         if (std.mem.eql(u8, name, "Array")) {
             try self.advance();
             try self.expect(.left_paren);

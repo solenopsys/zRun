@@ -3,6 +3,55 @@ const Value = @import("../value.zig").Value;
 
 pub const ArrayObject = struct {
     items: SmallList(Value, 4) = .{},
+    logical_length: usize = 0,
+    byte_storage: ?[]u8 = null,
+    is_buffer: bool = false,
+
+	pub fn len(self: *const ArrayObject) usize {
+		return if (self.byte_storage) |bytes| bytes.len else @max(self.logical_length, self.items.items.len);
+	}
+
+	pub fn get(self: *const ArrayObject, index: usize) Value {
+		if (self.byte_storage) |bytes| return Value.fromInt(bytes[index]).?;
+		return if (index < self.items.items.len) self.items.items[index] else Value.undefined_value;
+	}
+
+    pub fn set(self: *ArrayObject, allocator: std.mem.Allocator, index: usize, value: Value) !void {
+		if (self.byte_storage) |bytes| {
+			const number = value.asInt() orelse return error.TypeError;
+			bytes[index] = @truncate(@as(u32, @bitCast(number)));
+			return;
+		}
+        if (index >= self.items.items.len) {
+            try self.items.ensureTotalCapacity(allocator, index + 1);
+            while (self.items.items.len <= index) self.items.appendAssumeCapacity(Value.undefined_value);
+        }
+        self.items.items[index] = value;
+        self.logical_length = @max(self.logical_length, index + 1);
+    }
+
+    pub fn materialize(self: *ArrayObject, allocator: std.mem.Allocator) !void {
+        if (self.byte_storage != null or self.items.items.len >= self.len()) return;
+        const length = self.len();
+        try self.items.ensureTotalCapacity(allocator, length);
+        while (self.items.items.len < length) self.items.appendAssumeCapacity(Value.undefined_value);
+    }
+
+    pub fn markBuffer(self: *ArrayObject, allocator: std.mem.Allocator) !void {
+        if (self.byte_storage == null) {
+            try self.materialize(allocator);
+            const bytes = try allocator.alloc(u8, self.items.items.len);
+            errdefer allocator.free(bytes);
+            for (self.items.items, 0..) |value, index| {
+                const integer = value.asInt() orelse return error.InvalidByte;
+                if (integer < 0 or integer > 255) return error.InvalidByte;
+                bytes[index] = @intCast(integer);
+            }
+            self.items.deinit(allocator);
+            self.byte_storage = bytes;
+        }
+        self.is_buffer = true;
+    }
 
     fn init(self: *ArrayObject) void {
         self.items.init();
@@ -27,8 +76,12 @@ fn PointerCache(comptime T: type) type {
     return struct {
         entries: [8]?*T = @splat(null),
         next: usize = 0,
+        last: ?*T = null,
 
         fn get(self: *@This(), pointer: *anyopaque) ?*T {
+            if (self.last) |item| {
+                if (@intFromPtr(item) == @intFromPtr(pointer)) return item;
+            }
             for (self.entries) |entry| {
                 if (entry) |item| {
                     if (@intFromPtr(item) == @intFromPtr(pointer)) return item;
@@ -38,6 +91,7 @@ fn PointerCache(comptime T: type) type {
         }
 
         fn put(self: *@This(), item: *T) void {
+            self.last = item;
             self.entries[self.next] = item;
             self.next = (self.next + 1) % self.entries.len;
         }
@@ -178,6 +232,7 @@ pub const Store = struct {
     pub fn deinit(self: *Store) void {
         for (self.arrays.items) |array| {
             array.items.deinit(self.allocator);
+			if (array.byte_storage) |bytes| self.allocator.free(bytes);
             self.allocator.destroy(array);
         }
         self.arrays.deinit(self.allocator);
@@ -273,6 +328,21 @@ pub const Store = struct {
         return Value.fromPointer(array);
     }
 
+	pub fn createByteArray(self: *Store, length: usize) !Value {
+		const array = try self.allocator.create(ArrayObject);
+		errdefer self.allocator.destroy(array);
+		array.* = .{};
+		array.items.init();
+		array.byte_storage = try self.allocator.alloc(u8, length);
+		errdefer self.allocator.free(array.byte_storage.?);
+		@memset(array.byte_storage.?, 0);
+		try self.arrays.append(self.allocator, array);
+		errdefer _ = self.arrays.pop();
+		try self.array_index.put(self.allocator, @intFromPtr(array), array);
+		self.array_cache.put(array);
+		return Value.fromPointer(array);
+	}
+
     pub fn createExternalTaskPromise(self: *Store, task_id: u64) !Value {
         const promise = try self.allocator.create(ExternalTaskPromiseObject);
         errdefer self.allocator.destroy(promise);
@@ -307,12 +377,8 @@ pub const Store = struct {
 
     pub fn setArrayLength(self: *Store, value: Value, length: usize) !void {
         const array = self.findArray(value) orelse return error.InvalidArray;
-        try array.items.ensureTotalCapacity(self.allocator, length);
-        const storage = array.items.heap_storage orelse array.items.inline_storage[0..];
-        if (length > array.items.items.len) {
-            @memset(storage[array.items.items.len..length], Value.undefined_value);
-        }
-        array.items.items = storage[0..length];
+        if (length < array.items.items.len) array.items.items = array.items.items[0..length];
+        array.logical_length = length;
     }
 
     pub fn createObject(self: *Store) !Value {
@@ -475,6 +541,12 @@ pub const Store = struct {
         const array = self.array_index.get(@intFromPtr(pointer)) orelse return null;
         self.array_cache.put(array);
         return array;
+    }
+
+    pub fn markBuffer(self: *Store, value: Value) !bool {
+        const array = self.findArray(value) orelse return false;
+        try array.markBuffer(self.allocator);
+        return true;
     }
 
     pub fn findObject(self: *Store, value: Value) ?*ObjectObject {
@@ -707,6 +779,37 @@ test "runtime object store owns and validates array values" {
     try std.testing.expectEqual(@as(usize, 2), array.items.items.len);
     try std.testing.expectEqual(@as(?i32, 5), array.items.items[1].asInt());
     try std.testing.expect(store.findArray(Value.fromPointer(@ptrFromInt(8))) == null);
+}
+
+test "new arrays keep virtual length without allocating undefined elements" {
+    var store = Store.init(std.testing.allocator);
+    defer store.deinit();
+
+    const value = try store.createArrayWithCapacity(0);
+    try store.setArrayLength(value, 1024);
+    const array = store.findArray(value).?;
+    try std.testing.expectEqual(@as(usize, 1024), array.len());
+    try std.testing.expectEqual(@as(usize, 0), array.items.items.len);
+    try std.testing.expect(array.get(0).isUndefined());
+    try std.testing.expect(array.get(1023).isUndefined());
+
+    try array.set(store.allocator, 1023, Value.fromInt(7).?);
+    try std.testing.expectEqual(@as(usize, 1024), array.len());
+    try std.testing.expectEqual(@as(?i32, 7), array.get(1023).asInt());
+    try std.testing.expect(array.get(1000).isUndefined());
+}
+
+test "runtime object store frees byte array storage at store teardown" {
+    var store = Store.init(std.testing.allocator);
+    defer store.deinit();
+
+    for (0..512) |index| {
+        const value = try store.createByteArray(1024);
+        const array = store.findArray(value).?;
+        try std.testing.expectEqual(@as(usize, 1024), array.len());
+        array.byte_storage.?[0] = @truncate(index);
+        array.byte_storage.?[1023] = @truncate(index + 1);
+    }
 }
 
 test "runtime object store updates properties by string content" {

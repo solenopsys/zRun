@@ -149,6 +149,106 @@ pub fn bufferFrom(context: *VM.NativeCallContext, arguments: []const Value) anye
     return output;
 }
 
+pub fn bufferAlloc(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0) return error.MissingBufferLength;
+    const length_value = arguments[0].asInt() orelse return error.InvalidBufferLength;
+    if (length_value < 0) return error.InvalidBufferLength;
+    const result = try context.objects.createByteArray(@intCast(length_value));
+    context.objects.findArray(result).?.is_buffer = true;
+    return result;
+}
+
+pub fn bufferConcat(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len == 0) return error.MissingBufferList;
+    const list = context.objects.findArray(arguments[0]) orelse return error.InvalidBufferList;
+    var length: usize = 0;
+    for (0..list.len()) |index| {
+        const part = context.objects.findArray(list.get(index)) orelse return error.InvalidBufferPart;
+        length = std.math.add(usize, length, part.len()) catch return error.InvalidBufferLength;
+    }
+    if (arguments.len > 1) {
+        const requested = arguments[1].asInt() orelse return error.InvalidBufferLength;
+        if (requested < 0) return error.InvalidBufferLength;
+        length = @intCast(requested);
+    }
+    const result = try context.objects.createByteArray(length);
+    const output = context.objects.findArray(result).?.byte_storage.?;
+    var cursor: usize = 0;
+    for (0..list.len()) |index| {
+        const part = context.objects.findArray(list.get(index)).?;
+        const count = @min(part.len(), length -| cursor);
+        for (0..count) |offset| output[cursor + offset] = arrayByte(part.get(offset)) orelse return error.InvalidByte;
+        cursor += count;
+        if (cursor == length) break;
+    }
+    context.objects.findArray(result).?.is_buffer = true;
+    return result;
+}
+
+pub fn bufferWrite(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len < 2) return error.MissingBufferWriteArguments;
+    const target = context.objects.findArray(arguments[0]) orelse return error.InvalidBufferReceiver;
+    const output = target.byte_storage orelse return error.InvalidBufferReceiver;
+    const source = context.objects.findString(arguments[1]) orelse return error.InvalidBufferText;
+    const offset_value = if (arguments.len > 2) arguments[2].asInt() orelse return error.InvalidBufferOffset else 0;
+    if (offset_value < 0 or @as(usize, @intCast(offset_value)) > output.len) return error.InvalidBufferOffset;
+    const offset: usize = @intCast(offset_value);
+    const count = @min(source.len, output.len - offset);
+    @memcpy(output[offset .. offset + count], source[0..count]);
+    return Value.fromInt(@intCast(count)) orelse error.IntegerOverflow;
+}
+
+pub fn bufferWriteUInt16LE(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    return bufferWriteInteger(context, arguments, 2, true, false);
+}
+
+pub fn bufferWriteUInt32LE(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    return bufferWriteInteger(context, arguments, 4, true, false);
+}
+
+pub fn bufferWriteInt16LE(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    return bufferWriteInteger(context, arguments, 2, true, true);
+}
+
+pub fn bufferWriteDoubleBE(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    if (arguments.len < 2) return error.MissingBufferWriteArguments;
+    const target = context.objects.findArray(arguments[0]) orelse return error.InvalidBufferReceiver;
+    const output = target.byte_storage orelse return error.InvalidBufferReceiver;
+    const offset_value = arguments[2].asInt() orelse return error.InvalidBufferOffset;
+    if (offset_value < 0) return error.InvalidBufferOffset;
+    const offset: usize = @intCast(offset_value);
+    if (offset > output.len or output.len - offset < 8) return error.InvalidBufferOffset;
+    const number = arguments[1].asFloat64() orelse @as(f64, @floatFromInt(arguments[1].asInt() orelse return error.InvalidBufferNumber));
+    const bits: u64 = @bitCast(number);
+    for (0..8) |index| output[offset + index] = @truncate(bits >> @intCast((7 - index) * 8));
+    return Value.fromInt(@intCast(offset + 8)) orelse error.IntegerOverflow;
+}
+
+fn bufferWriteInteger(context: *VM.NativeCallContext, arguments: []const Value, size: usize, little_endian: bool, signed: bool) anyerror!Value {
+    if (arguments.len < 2) return error.MissingBufferWriteArguments;
+    const target = context.objects.findArray(arguments[0]) orelse return error.InvalidBufferReceiver;
+    const output = target.byte_storage orelse return error.InvalidBufferReceiver;
+    const offset_value = if (arguments.len > 2) arguments[2].asInt() orelse return error.InvalidBufferOffset else 0;
+    if (offset_value < 0) return error.InvalidBufferOffset;
+    const offset: usize = @intCast(offset_value);
+    if (offset > output.len or output.len - offset < size) return error.InvalidBufferOffset;
+    const number = arguments[1].asInt() orelse return error.InvalidBufferNumber;
+    if (signed and size == 2 and (number < -32768 or number > 32767)) return error.InvalidBufferNumber;
+    if (!signed and ((size == 2 and (number < 0 or number > 65535)) or (size == 4 and (number < 0 or number > 4294967295)))) return error.InvalidBufferNumber;
+    const bits: u64 = @bitCast(@as(i64, number));
+    for (0..size) |index| {
+        const shift_index = if (little_endian) index else size - 1 - index;
+        output[offset + index] = @truncate(bits >> @intCast(shift_index * 8));
+    }
+    return Value.fromInt(@intCast(offset + size)) orelse error.IntegerOverflow;
+}
+
+fn arrayByte(value: Value) ?u8 {
+    const number = value.asInt() orelse return null;
+    if (number < 0 or number > 255) return null;
+    return @intCast(number);
+}
+
 pub fn bufferIsBuffer(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
     if (arguments.len == 0) return Value.false_value;
     const value = arguments[0];

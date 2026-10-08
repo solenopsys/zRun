@@ -767,6 +767,28 @@ pub const Store = struct {
         }
         try object.fields.append(self.allocator, .{ .name = name, .value = property_value });
     }
+
+    pub fn deleteProperty(self: *Store, value: Value, name: []const u8) bool {
+        if (self.findClosure(value)) |closure| {
+            for (closure.properties.items, 0..) |field, index| {
+                if (!std.mem.eql(u8, field.name, name)) continue;
+                const length = closure.properties.items.len;
+                std.mem.copyForwards(ObjectField, closure.properties.items[index .. length - 1], closure.properties.items[index + 1 .. length]);
+                closure.properties.items = closure.properties.items[0 .. length - 1];
+                return true;
+            }
+            return true;
+        }
+        const object = self.findObject(value) orelse return false;
+        for (object.fields.items, 0..) |field, index| {
+            if (!std.mem.eql(u8, field.name, name)) continue;
+            const length = object.fields.items.len;
+            std.mem.copyForwards(ObjectField, object.fields.items[index .. length - 1], object.fields.items[index + 1 .. length]);
+            object.fields.items = object.fields.items[0 .. length - 1];
+            return true;
+        }
+        return true;
+    }
 };
 
 test "runtime object store owns and validates array values" {

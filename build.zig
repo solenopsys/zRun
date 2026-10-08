@@ -86,6 +86,7 @@ pub fn build(b: *std.Build) void {
     });
     compare.step.dependOn(&make_reference_headers.step);
     const run_compare = b.addRunArtifact(compare);
+    run_compare.addPassthruArgs();
     b.step("compare", "Compare both VMs in process on one upstream bytecode image").dependOn(&run_compare.step);
 
     const compare_stats_module = b.createModule(.{
@@ -111,6 +112,7 @@ pub fn build(b: *std.Build) void {
     });
     compare_stats.step.dependOn(&make_reference_headers.step);
     const run_compare_stats = b.addRunArtifact(compare_stats);
+    run_compare_stats.addPassthruArgs();
     b.step("compare-stats", "Collect opcode histograms from both VMs in diagnostic builds").dependOn(&run_compare_stats.step);
 
     const compile_bench_module = b.createModule(.{

@@ -721,6 +721,12 @@ pub const VM = struct {
                     };
                     try self.push(&stack, function.max_stack, property_value);
                 },
+                .delete_property => {
+                    const property_value = try self.pop(&stack);
+                    const object_value = try self.pop(&stack);
+                    const property_name = stringBytes(function.*, objects, property_value) orelse return error.TypeError;
+                    try self.push(&stack, function.max_stack, Value.boolean(objects.deleteProperty(object_value, property_name)));
+                },
                 .define_field => {
                     const property_index = try readU16(function.code, &pc);
                     if (property_index >= function.constants.len) return error.BadConstantIndex;
@@ -922,10 +928,12 @@ pub const VM = struct {
                     if (stack.len < 2) return error.StackUnderflow;
                     std.mem.swap(Value, &stack.storage[stack.len - 1], &stack.storage[stack.len - 2]);
                 },
-                .add, .sub, .mul, .div, .mod, .eq, .neq, .strict_eq, .strict_neq, .lt, .lte, .gt, .gte, .and_op, .xor, .or_op, .shl, .sar, .shr, .in_operator, .instanceof => {
+                inline .add, .sub, .mul, .div, .mod, .eq, .neq, .strict_eq, .strict_neq, .lt, .lte, .gt, .gte, .and_op, .xor, .or_op, .shl, .sar, .shr, .in_operator, .instanceof => |binary_opcode| {
                     const right = try self.pop(&stack);
                     const left = try self.pop(&stack);
-                    const result = switch (opcode) {
+                    const result = if ((binary_opcode == .add or binary_opcode == .sub or binary_opcode == .mul or binary_opcode == .div or binary_opcode == .mod or binary_opcode == .lt or binary_opcode == .lte or binary_opcode == .gt or binary_opcode == .gte) and left.isInt() and right.isInt())
+                        try binary(binary_opcode, left, right)
+                    else switch (binary_opcode) {
                         .add => if ((left.isPointer() or right.isPointer()) and (objects.findBigInt(left) != null or objects.findBigInt(right) != null))
                             try binaryWithBigInt(self, objects, .add, left, right)
                         else if (left.asInt() != null and right.asInt() != null)
@@ -1025,7 +1033,7 @@ pub const VM = struct {
                     const operand_pc = pc;
                     const relative = @as(i32, @bitCast(try readU32(function.code, &pc)));
                     const condition = try self.pop(&stack);
-                    const truthy = isTruthyWithObjects(function.*, objects, condition);
+                    const truthy = condition.asBool() orelse isTruthyWithObjects(function.*, objects, condition);
                     const should_branch = if (opcode == .if_true) truthy else !truthy;
                     if (should_branch) pc = try branchTarget(function.code.len, operand_pc, relative);
                 },

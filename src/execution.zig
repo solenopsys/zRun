@@ -100,6 +100,14 @@ const native_function_list = [_]VM.NativeFunction{
     builtin_plugin.bufferFrom,
     builtin_plugin.bufferIsBuffer,
     builtin_plugin.bufferToString,
+    builtin_plugin.bufferAlloc,
+    builtin_plugin.bufferConcat,
+    builtin_plugin.bufferWrite,
+    builtin_plugin.bufferWriteUInt16LE,
+    builtin_plugin.bufferWriteUInt32LE,
+    builtin_plugin.bufferWriteInt16LE,
+    builtin_plugin.bufferWriteDoubleBE,
+    collections.setDelete,
 };
 
 pub const HostPluginCall = *const fn (?*anyopaque, std.mem.Allocator, []const u8) anyerror![]const u8;
@@ -432,7 +440,7 @@ pub fn createModuleFunctionAsyncSession(
 	return AsyncSession.create(allocator, function.*, options);
 }
 
-fn arrayNativeMethods() [40]VM.NativeMethod {
+fn arrayNativeMethods() [46]VM.NativeMethod {
     return .{
         .{ .name = "push", .receiver = .array, .native_index = 1 },
         .{ .name = "map", .receiver = .array, .native_index = 11 },
@@ -461,6 +469,7 @@ fn arrayNativeMethods() [40]VM.NativeMethod {
         .{ .name = "add", .receiver = .set, .native_index = 34 },
         .{ .name = "has", .receiver = .set, .native_index = 35 },
         .{ .name = "values", .receiver = .set, .native_index = 36 },
+        .{ .name = "delete", .receiver = .set, .native_index = 80 },
         .{ .name = "next", .receiver = .iterator, .native_index = 37 },
         .{ .name = "test", .receiver = .regex, .native_index = 38 },
         .{ .name = "slice", .receiver = .string, .native_index = 40 },
@@ -474,6 +483,11 @@ fn arrayNativeMethods() [40]VM.NativeMethod {
         .{ .name = "slice", .receiver = .byte_array, .native_index = 18 },
         .{ .name = "set", .receiver = .byte_array, .native_index = 69 },
         .{ .name = "toString", .receiver = .byte_array, .native_index = 72 },
+        .{ .name = "write", .receiver = .byte_array, .native_index = 75 },
+        .{ .name = "writeUInt16LE", .receiver = .byte_array, .native_index = 76 },
+        .{ .name = "writeUInt32LE", .receiver = .byte_array, .native_index = 77 },
+        .{ .name = "writeInt16LE", .receiver = .byte_array, .native_index = 78 },
+        .{ .name = "writeDoubleBE", .receiver = .byte_array, .native_index = 79 },
     };
 }
 

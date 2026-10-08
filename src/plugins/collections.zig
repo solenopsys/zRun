@@ -74,6 +74,17 @@ pub fn setHas(context: *VM.NativeCallContext, arguments: []const Value) anyerror
     return Value.false_value;
 }
 
+pub fn setDelete(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
+    const target = try collection(context, arguments, .set);
+    if (arguments.len < 2) return Value.false_value;
+    for (target.entries.items, 0..) |entry, index| {
+        if (!equal(context, entry.key, arguments[1])) continue;
+        _ = target.entries.orderedRemove(index);
+        return Value.true_value;
+    }
+    return Value.false_value;
+}
+
 pub fn setValues(context: *VM.NativeCallContext, arguments: []const Value) anyerror!Value {
     const target = try collection(context, arguments, .set);
     const values = try context.objects.allocator.alloc(Value, target.entries.items.len);

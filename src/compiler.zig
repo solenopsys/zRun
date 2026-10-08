@@ -307,6 +307,7 @@ const TokenKind = enum {
     case_kw,
     default_kw,
     in_kw,
+    delete_kw,
     instanceof_kw,
     typeof_kw,
     class_kw,
@@ -337,7 +338,7 @@ const Token = struct {
 
 fn isIdentifierName(kind: TokenKind) bool {
     return switch (kind) {
-        .identifier, .let_kw, .const_kw, .var_kw, .if_kw, .while_kw, .do_kw, .for_kw, .switch_kw, .case_kw, .default_kw, .in_kw, .instanceof_kw, .typeof_kw, .void_kw, .class_kw, .of_kw, .break_kw, .continue_kw, .function_kw, .return_kw, .try_kw, .catch_kw, .finally_kw, .throw_kw, .else_kw, .true_kw, .false_kw, .null_kw, .undefined_kw, .this_kw, .new_kw => true,
+        .identifier, .let_kw, .const_kw, .var_kw, .if_kw, .while_kw, .do_kw, .for_kw, .switch_kw, .case_kw, .default_kw, .in_kw, .delete_kw, .instanceof_kw, .typeof_kw, .void_kw, .class_kw, .of_kw, .break_kw, .continue_kw, .function_kw, .return_kw, .try_kw, .catch_kw, .finally_kw, .throw_kw, .else_kw, .true_kw, .false_kw, .null_kw, .undefined_kw, .this_kw, .new_kw => true,
         else => false,
     };
 }
@@ -678,7 +679,7 @@ const Parser = struct {
                 self.offset += 1;
             }
             const word = self.source[start..self.offset];
-            const kind: TokenKind = if (std.mem.eql(u8, word, "let")) .let_kw else if (std.mem.eql(u8, word, "const")) .const_kw else if (std.mem.eql(u8, word, "var")) .var_kw else if (std.mem.eql(u8, word, "if")) .if_kw else if (std.mem.eql(u8, word, "while")) .while_kw else if (std.mem.eql(u8, word, "do")) .do_kw else if (std.mem.eql(u8, word, "for")) .for_kw else if (std.mem.eql(u8, word, "switch")) .switch_kw else if (std.mem.eql(u8, word, "case")) .case_kw else if (std.mem.eql(u8, word, "default")) .default_kw else if (std.mem.eql(u8, word, "in")) .in_kw else if (std.mem.eql(u8, word, "of")) .of_kw else if (std.mem.eql(u8, word, "instanceof")) .instanceof_kw else if (std.mem.eql(u8, word, "typeof")) .typeof_kw else if (std.mem.eql(u8, word, "void")) .void_kw else if (std.mem.eql(u8, word, "class")) .class_kw else if (std.mem.eql(u8, word, "break")) .break_kw else if (std.mem.eql(u8, word, "continue")) .continue_kw else if (std.mem.eql(u8, word, "function")) .function_kw else if (std.mem.eql(u8, word, "return")) .return_kw else if (std.mem.eql(u8, word, "try")) .try_kw else if (std.mem.eql(u8, word, "catch")) .catch_kw else if (std.mem.eql(u8, word, "finally")) .finally_kw else if (std.mem.eql(u8, word, "throw")) .throw_kw else if (std.mem.eql(u8, word, "else")) .else_kw else if (std.mem.eql(u8, word, "true")) .true_kw else if (std.mem.eql(u8, word, "false")) .false_kw else if (std.mem.eql(u8, word, "null")) .null_kw else if (std.mem.eql(u8, word, "undefined")) .undefined_kw else if (std.mem.eql(u8, word, "this")) .this_kw else if (std.mem.eql(u8, word, "new")) .new_kw else .identifier;
+            const kind: TokenKind = if (std.mem.eql(u8, word, "let")) .let_kw else if (std.mem.eql(u8, word, "const")) .const_kw else if (std.mem.eql(u8, word, "var")) .var_kw else if (std.mem.eql(u8, word, "if")) .if_kw else if (std.mem.eql(u8, word, "while")) .while_kw else if (std.mem.eql(u8, word, "do")) .do_kw else if (std.mem.eql(u8, word, "for")) .for_kw else if (std.mem.eql(u8, word, "switch")) .switch_kw else if (std.mem.eql(u8, word, "case")) .case_kw else if (std.mem.eql(u8, word, "default")) .default_kw else if (std.mem.eql(u8, word, "in")) .in_kw else if (std.mem.eql(u8, word, "delete")) .delete_kw else if (std.mem.eql(u8, word, "of")) .of_kw else if (std.mem.eql(u8, word, "instanceof")) .instanceof_kw else if (std.mem.eql(u8, word, "typeof")) .typeof_kw else if (std.mem.eql(u8, word, "void")) .void_kw else if (std.mem.eql(u8, word, "class")) .class_kw else if (std.mem.eql(u8, word, "break")) .break_kw else if (std.mem.eql(u8, word, "continue")) .continue_kw else if (std.mem.eql(u8, word, "function")) .function_kw else if (std.mem.eql(u8, word, "return")) .return_kw else if (std.mem.eql(u8, word, "try")) .try_kw else if (std.mem.eql(u8, word, "catch")) .catch_kw else if (std.mem.eql(u8, word, "finally")) .finally_kw else if (std.mem.eql(u8, word, "throw")) .throw_kw else if (std.mem.eql(u8, word, "else")) .else_kw else if (std.mem.eql(u8, word, "true")) .true_kw else if (std.mem.eql(u8, word, "false")) .false_kw else if (std.mem.eql(u8, word, "null")) .null_kw else if (std.mem.eql(u8, word, "undefined")) .undefined_kw else if (std.mem.eql(u8, word, "this")) .this_kw else if (std.mem.eql(u8, word, "new")) .new_kw else .identifier;
             self.current = .{ .kind = kind, .start = start, .end = self.offset };
             return;
         }
@@ -2195,6 +2196,30 @@ const Parser = struct {
                 try self.emit(.drop);
                 try self.emit(.undefined_value);
             },
+            .delete_kw => {
+                try self.advance();
+                if (self.current.kind == .this_kw) {
+                    try self.emit(.push_this);
+                    try self.advance();
+                } else {
+                    if (self.current.kind != .identifier) return error.ExpectedIdentifier;
+                    const name = self.lexeme();
+                    const index = self.locals.get(name) orelse return error.UnknownIdentifier;
+                    try self.emitLocalGet(index);
+                    try self.advance();
+                }
+                if (self.current.kind == .dot) {
+                    try self.advance();
+                    if (self.current.kind != .identifier) return error.ExpectedIdentifier;
+                    _ = try self.emitConstant(try self.addString(self.lexeme()));
+                    try self.advance();
+                } else if (self.current.kind == .left_bracket) {
+                    try self.advance();
+                    try self.expressionSequence();
+                    try self.expect(.right_bracket);
+                } else return error.UnexpectedToken;
+                try self.emit(.delete_property);
+            },
             .identifier => {
                 const name = self.lexeme();
                 if (std.mem.eql(u8, name, "await")) {
@@ -2334,6 +2359,12 @@ const Parser = struct {
                     _ = try self.emitConstant(Value.shortFunction(70));
                 } else if (std.mem.eql(u8, name, "__zrunBufferIsBuffer")) {
                     _ = try self.emitConstant(Value.shortFunction(71));
+                } else if (std.mem.eql(u8, name, "__zrunBufferAlloc")) {
+                    _ = try self.emitConstant(Value.shortFunction(73));
+                } else if (std.mem.eql(u8, name, "__zrunBufferConcat")) {
+                    _ = try self.emitConstant(Value.shortFunction(74));
+                } else if (std.mem.eql(u8, name, "__zrunSetDelete")) {
+                    _ = try self.emitConstant(Value.shortFunction(80));
                 } else if (std.mem.eql(u8, name, "Boolean")) {
                     _ = try self.emitConstant(Value.shortFunction(41));
                 } else if (std.mem.eql(u8, name, "String")) {
@@ -3528,7 +3559,7 @@ fn isErrorConstructor(name: []const u8) bool {
 fn isUnavailableHostGlobal(name: []const u8) bool {
     const names = [_][]const u8{
         "document", "window",           "self",    "navigator",  "localStorage", "sessionStorage",       "Node",                 "Element",     "Text", "HTMLElement", "SVGElement",
-        "Event",    "MutationObserver", "setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame",
+        "Event",    "MutationObserver", "setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame", "Deno",
     };
     for (names) |candidate| if (std.mem.eql(u8, name, candidate)) return true;
     return false;
@@ -3549,6 +3580,7 @@ fn builtinFunction(namespace: []const u8, method: []const u8) ?usize {
         if (std.mem.eql(u8, method, "values")) return 7;
         if (std.mem.eql(u8, method, "getPrototypeOf")) return 57;
         if (std.mem.eql(u8, method, "getOwnPropertyNames")) return 58;
+        if (std.mem.eql(u8, method, "hasOwn")) return 59;
     }
     if (std.mem.eql(u8, namespace, "JSON")) {
         if (std.mem.eql(u8, method, "parse")) return 8;
